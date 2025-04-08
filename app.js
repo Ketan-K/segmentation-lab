@@ -430,10 +430,20 @@ async function applyVirtualBackground() {
         
         // Update performance metrics
         updatePerformanceMetrics(result.segmentationTime, result.totalTime);
+        
+        // Create a frame from the processed canvas and send it to the stream
+        if (virtualBackground.videoTrack && virtualBackground.videoTrack.requestFrame) {
+            virtualBackground.videoTrack.requestFrame();
+        }
     } catch (error) {
         updateDebugInfo(`Error processing frame: ${error.message}`);
         // Fallback to original video
         virtualBackground.context.drawImage(localVideo, 0, 0, localCanvas.width, localCanvas.height);
+        // Still request a frame even on error
+        if (virtualBackground.videoTrack && virtualBackground.videoTrack.requestFrame) {
+            virtualBackground.videoTrack.requestFrame();
+        }
+        throw error; // Re-throw to allow caller to handle it
     }
 }
 
@@ -456,10 +466,14 @@ function processVideoFrames() {
     }
     
     // Apply virtual background
-    applyVirtualBackground();
-    
-    // Schedule next frame
-    virtualBackground.animationFrame = requestAnimationFrame(processVideoFrames);
+    applyVirtualBackground().then(() => {
+        // After successfully processing the frame, request the next one
+        virtualBackground.animationFrame = requestAnimationFrame(processVideoFrames);
+    }).catch(error => {
+        updateDebugInfo(`Error in frame processing: ${error.message}`);
+        // Even on error, continue processing the next frame
+        virtualBackground.animationFrame = requestAnimationFrame(processVideoFrames);
+    });
 }
 
 // Toggle virtual background
@@ -493,8 +507,19 @@ async function toggleVirtualBackground() {
             return;
         }
         
-        // Setup canvas for both remote and local display
-        const canvasStream = localCanvas.captureStream(30);
+        // Instead of using captureStream with a fixed FPS, we'll create a dynamic stream
+        // and manually add frames to it after each processing
+        const canvasStream = localCanvas.captureStream(0); // 0 means no automatic capture
+        virtualBackground.canvasStream = canvasStream;
+        
+        // Store video track for later use
+        virtualBackground.videoTrack = canvasStream.getVideoTracks()[0];
+        
+        // Get the browser's actual frame rate capability for display purposes
+        const videoTrack = localStream.getVideoTracks()[0];
+        const settings = videoTrack ? videoTrack.getSettings() : null;
+        virtualBackground.targetFps = settings && settings.frameRate ? Math.round(settings.frameRate) : 30;
+        updateDebugInfo(`Source video FPS capability: ${virtualBackground.targetFps}`);
         
         // Add the audio tracks from the original stream
         const audioTracks = localStream.getAudioTracks();
@@ -1384,8 +1409,14 @@ async function updateLocalStats() {
                 </div>
             `;
             
-            // Use the actual frameRate from settings if available
-            if (settings.frameRate) {
+            // Use the target FPS when virtual background is enabled, otherwise use the actual setting
+            if (virtualBackground.enabled && virtualBackground.targetFps) {
+                statsHtml += `
+                    <div class="stats-item">
+                        <span>FPS:</span> ${virtualBackground.targetFps}
+                    </div>
+                `;
+            } else if (settings.frameRate) {
                 statsHtml += `
                     <div class="stats-item">
                         <span>FPS:</span> ${Math.round(settings.frameRate)}

@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "WebRTC video conferencing application with multiple AI-powered virtual background segmentation models including SAM2, MediaPipe, BodyPix and WebGL",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
