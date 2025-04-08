@@ -39,6 +39,6 @@ export default class BaseBackgroundModel {
      * Clean up resources, cancel any pending operations
      */
     dispose() {
-        this.debugCallback('Base dispose called - override in subclass if needed');
+        // Do not log regular cleanup operations
     }
 }

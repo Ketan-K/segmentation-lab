@@ -2,6 +2,10 @@
 
 A WebRTC-based video conferencing application that serves as a testing laboratory for multiple AI-powered virtual background segmentation technologies. Compare and evaluate SAM2 (Segment Anything Model 2), BodyPix, MediaPipe, and WebGL models in real-time.
 
+## Live Demo
+
+Try the application online: [https://segmentation-lab.onrender.com/](https://segmentation-lab.onrender.com/)
+
 ## Features
 
 - 🧪 Test and compare multiple AI segmentation models in real-time

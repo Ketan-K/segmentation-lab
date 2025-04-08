@@ -258,12 +258,12 @@ class SAM2Model extends BaseBackgroundModel {
             if (backgroundType === 'blur') {
                 // Apply blur effect
                 this.applyBlurBackground(imageData, mask, context);
-                this.debugCallback('SAM2: Applied blur effect');
+                // No need for verbose logging
                 
             } else if (backgroundType === 'beach' || backgroundType === 'custom') {
                 // Apply image background
                 this.applyImageBackground(videoElement, canvas, mask, backgroundImage);
-                this.debugCallback(`SAM2: Applied ${backgroundType} background`);
+                // No need for verbose logging
             }
             
             const totalTime = performance.now() - startTime;
@@ -359,7 +359,7 @@ class SAM2Model extends BaseBackgroundModel {
             this.session = null;
         }
         this.isModelReady = false;
-        this.debugCallback('SAM2 model resources released');
+        // No need for verbose logging
     }
 }
 

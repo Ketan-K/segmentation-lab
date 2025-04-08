@@ -110,13 +110,13 @@ class MediaPipeModel extends BaseBackgroundModel {
                 if (!this.isLowPowerMode) {
                     this.isLowPowerMode = true;
                     this.maxSkippedFrames = 2; // Skip 2 frames
-                    this.debugCallback('MediaPipe: Switched to low power mode');
+                    // Remove verbose logging
                 }
             } else if (this.lastProcessingTime < 20) { // Less than 20 ms per frame
                 if (this.isLowPowerMode) {
                     this.isLowPowerMode = false;
                     this.maxSkippedFrames = 1; // Skip 1 frame
-                    this.debugCallback('MediaPipe: Switched to normal power mode');
+                    // Remove verbose logging
                 }
             }
         }, 5000); // Check every 5 seconds
@@ -266,7 +266,7 @@ class MediaPipeModel extends BaseBackgroundModel {
             ctx.drawImage(this.bufferCanvas, 0, 0);
             ctx.restore();
             
-            this.debugCallback('MediaPipe: Applied blur effect');
+            // No need to log everyday operations
             
         } else if (backgroundType === 'beach' || backgroundType === 'office' || backgroundType === 'custom') {
             // Check if background image is available
@@ -293,7 +293,7 @@ class MediaPipeModel extends BaseBackgroundModel {
                 ctx.drawImage(this.bufferCanvas, 0, 0);
                 ctx.restore();
                 
-                this.debugCallback(`MediaPipe: Applied ${backgroundType} background`);
+                // No need to log everyday operations
             } else {
                 // If image isn't loaded yet, show a message and fall back to original video
                 this.debugCallback(`MediaPipe: Background image for ${backgroundType} not ready yet`);
@@ -319,7 +319,7 @@ class MediaPipeModel extends BaseBackgroundModel {
             this.loadingPromise = null;
             this.skippedFrames = 0;
             this.isLowPowerMode = false;
-            this.debugCallback('MediaPipe model resources disposed');
+            // No need to log everyday operations
         }
     }
 }

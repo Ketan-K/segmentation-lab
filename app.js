@@ -218,14 +218,18 @@ function updateMetricsDisplay() {
     const avgFrameTime = frameTimes.length > 0 ? 
         frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length : 0;
     
-    const fps = avgFrameTime ? 1000 / avgFrameTime : 0;
+    // Calculate FPS based on the video's actual frame rate capability
+    // instead of raw processing speed to ensure UI display matches reality
+    const fps = virtualBackground.targetFps 
+        ? Math.min(virtualBackground.targetFps, avgFrameTime ? 1000 / avgFrameTime : 0)
+        : (avgFrameTime ? 1000 / avgFrameTime : 0);
     
     // Calculate session duration
     const sessionDuration = sessionStartTime ? 
         (performance.now() - sessionStartTime) / 1000 : 0; // in seconds
     
     // Calculate session averages
-    const avgFps = sessionDuration > 0 ? totalProcessedFrames / sessionDuration : 0;
+    const avgFps = sessionDuration > 0 ? Math.min(virtualBackground.targetFps || Infinity, totalProcessedFrames / sessionDuration) : 0;
     const avgSegTime = totalProcessedFrames > 0 ? totalSegmentationTime / totalProcessedFrames : 0;
     const avgFrameProcessTime = totalProcessedFrames > 0 ? totalFrameProcessingTime / totalProcessedFrames : 0;
     
@@ -447,7 +451,7 @@ async function applyVirtualBackground() {
     }
 }
 
-// Process video frames
+// Process video frames - modified to limit processing rate to match video
 function processVideoFrames() {
     if (!virtualBackground.enabled || !localVideo) {
         if (virtualBackground.animationFrame) {
@@ -456,6 +460,19 @@ function processVideoFrames() {
         }
         return;
     }
+    
+    // Get current video timestamp - we'll use this to detect new frames
+    const currentVideoTime = localVideo.currentTime;
+    
+    // If the video time hasn't changed since the last processing, skip this frame
+    if (virtualBackground.lastProcessedVideoTime === currentVideoTime) {
+        // Schedule next check without processing (polling but not processing)
+        virtualBackground.animationFrame = requestAnimationFrame(processVideoFrames);
+        return;
+    }
+    
+    // Store current video time to track frame changes
+    virtualBackground.lastProcessedVideoTime = currentVideoTime;
     
     // Ensure canvas size matches video dimensions if available
     if (localVideo.videoWidth && localVideo.videoHeight && 
@@ -490,6 +507,9 @@ async function toggleVirtualBackground() {
         
         // Reset metrics when enabling
         resetMetrics();
+        
+        // Reset frame synchronization tracking
+        virtualBackground.lastProcessedVideoTime = -1;
         
         // Start metrics updates
         startMetricsUpdates();
@@ -750,13 +770,16 @@ function createPeerConnection() {
     
     // Handle connection state changes
     peerConnection.oniceconnectionstatechange = () => {
-        console.log('ICE connection state:', peerConnection.iceConnectionState);
+        // Only log critical state changes
+        const state = peerConnection.iceConnectionState;
+        if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+            console.log('ICE connection state:', state);
+        }
     };
     
     // Handle receiving remote stream
     peerConnection.ontrack = event => {
         if (remoteVideo.srcObject !== event.streams[0]) {
-            console.log('Received remote stream');
             remoteVideo.srcObject = event.streams[0];
         }
     };
@@ -986,14 +1009,12 @@ function copyMeetingLink() {
 
 // Socket.io event handlers
 socket.on('joined-meeting', () => {
-    console.log('Successfully joined meeting:', meetingCode);
     if (isInitiator) {
         createPeerConnection();
     }
 });
 
 socket.on('new-user-joined', () => {
-    console.log('A new user joined the meeting');
     showAlert('A new participant has joined the meeting', 'info');
     if (isInitiator) {
         startCall();
@@ -1002,27 +1023,23 @@ socket.on('new-user-joined', () => {
 
 socket.on('offer', data => {
     if (data.meetingCode === meetingCode) {
-        console.log('Received offer');
         handleOffer(data.offer);
     }
 });
 
 socket.on('answer', data => {
     if (data.meetingCode === meetingCode) {
-        console.log('Received answer');
         handleAnswer(data.answer);
     }
 });
 
 socket.on('ice-candidate', data => {
     if (data.meetingCode === meetingCode) {
-        console.log('Received ICE candidate');
         handleIceCandidate(data.candidate);
     }
 });
 
 socket.on('user-disconnected', () => {
-    console.log('The other user disconnected');
     showAlert('The other participant has left the meeting', 'info');
     remoteVideo.srcObject = null;
 });
@@ -1409,19 +1426,19 @@ async function updateLocalStats() {
                 </div>
             `;
             
-            // Use the target FPS when virtual background is enabled, otherwise use the actual setting
-            if (virtualBackground.enabled && virtualBackground.targetFps) {
-                statsHtml += `
-                    <div class="stats-item">
-                        <span>FPS:</span> ${virtualBackground.targetFps}
-                    </div>
-                `;
-            } else if (settings.frameRate) {
+            // Always use the native video frame rate for display so stats match
+            // This ensures the displayed FPS is consistent with the video source
+            if (settings.frameRate) {
                 statsHtml += `
                     <div class="stats-item">
                         <span>FPS:</span> ${Math.round(settings.frameRate)}
                     </div>
                 `;
+                
+                // Update this globally so other metrics can match
+                if (virtualBackground.targetFps !== Math.round(settings.frameRate)) {
+                    virtualBackground.targetFps = Math.round(settings.frameRate);
+                }
             }
         }
         

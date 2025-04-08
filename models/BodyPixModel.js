@@ -50,7 +50,7 @@ class BodyPixModel extends BaseBackgroundModel {
         if (canvasElement.width !== videoWidth || canvasElement.height !== videoHeight) {
             canvasElement.width = videoWidth;
             canvasElement.height = videoHeight;
-            this.debugCallback(`BodyPix: Adjusted canvas to match video dimensions: ${canvasElement.width}x${canvasElement.height}`);
+            // Removed verbose log
         }
         
         // Double check if canvas has valid dimensions
@@ -87,7 +87,7 @@ class BodyPixModel extends BaseBackgroundModel {
                 await bodyPix.drawBokehEffect(
                     canvasElement, videoElement, segmentation, 15, 7, false);
                 
-                this.debugCallback('BodyPix: Applied blur effect');
+                // Removed verbose log
                 
             } else if (backgroundType === 'beach' || backgroundType === 'custom') {
                 // Check if background image is available
@@ -117,7 +117,7 @@ class BodyPixModel extends BaseBackgroundModel {
                     // Draw the person on the canvas - ensure the person canvas has valid dimensions
                     if (personCanvas.width > 0 && personCanvas.height > 0) {
                         ctx.drawImage(personCanvas, 0, 0);
-                        this.debugCallback(`BodyPix: Applied ${backgroundType} background`);
+                        // Removed verbose log
                     } else {
                         // Fallback if personCanvas is invalid
                         ctx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
