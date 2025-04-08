@@ -1,0 +1,33 @@
+{
+  "name": "segmentation-lab",
+  "version": "1.0.0",
+  "description": "WebRTC video conferencing application with multiple AI-powered virtual background segmentation models including SAM2, MediaPipe, BodyPix and WebGL",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "webrtc",
+    "video-conferencing",
+    "virtual-background",
+    "segment-anything",
+    "sam2",
+    "bodypix",
+    "mediapipe",
+    "webgl"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
