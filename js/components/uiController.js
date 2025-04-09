@@ -1,5 +1,6 @@
 // UI Controller for managing DOM elements and event listeners
 import { formatBytes, updateDebugInfo } from '../utils/generalUtils.js';
+import ModelLabUI from './ModelLabUI.js';
 
 /**
  * Initializes UI elements and returns references to them
@@ -49,7 +50,7 @@ export function initUI() {
     
     // Set up tooltips for metrics
     setupTooltips();
-    
+
     return uiElements;
 }
 

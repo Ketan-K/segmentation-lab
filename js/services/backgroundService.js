@@ -29,7 +29,8 @@ export function initVirtualBackground(uiElements) {
         },
         // Model metrics storage for comparison
         modelMetrics: {
-            mediaPipe: { fps: 0, segTime: 0, processTime: 0 }
+            mediaPipe: { fps: 0, segTime: 0, processTime: 0 },
+            bodypix: { fps: 0, segTime: 0, processTime: 0 }
         }
     };
 
@@ -89,27 +90,132 @@ export function initVirtualBackground(uiElements) {
 
     /**
      * Load selected background model
+     * @param {string} modelType - Optional model type to load
      * @returns {Promise<boolean>} - Whether model was loaded successfully
      */
-    async function loadSelectedModel() {
-        // Only MediaPipe model is available now
-        virtualBackground.model = 'mediaPipe';
-        uiElements.currentModelEl.textContent = 'mediaPipe';
+    async function loadSelectedModel(modelType = null) {
+        // If a model type is provided, use it
+        if (modelType) {
+            virtualBackground.model = modelType;
+        }
+        
+        // Clean up existing model if any
+        if (virtualBackground.activeModel) {
+            try {
+                virtualBackground.activeModel.dispose();
+            } catch (e) {
+                updateDebugInfo(`Error disposing current model: ${e.message}`);
+            }
+        }
         
         try {
-            // Import and create the MediaPipe model
-            const MediaPipeModel = (await import('../../models/MediaPipeModel.js')).default;
-            virtualBackground.activeModel = new MediaPipeModel(updateDebugInfo);
+            // Get the model factory from the window (set in app.js)
+            const modelFactory = window.modelFactory;
+            
+            if (!modelFactory) {
+                throw new Error('Model factory not initialized');
+            }
+            
+            // Create a new model instance using the factory
+            virtualBackground.activeModel = await modelFactory.createModel(virtualBackground.model);
+            
+            if (!virtualBackground.activeModel) {
+                throw new Error(`Failed to create model of type: ${virtualBackground.model}`);
+            }
+            
+            // Update UI
+            uiElements.currentModelEl.textContent = virtualBackground.model;
             
             // Initialize the model
             const success = await virtualBackground.activeModel.init();
             if (success) {
-                showAlert(`MediaPipe model initialized successfully`, 'success');
+                showAlert(`${virtualBackground.model} model initialized successfully`, 'success');
             }
             return success;
         } catch (error) {
-            updateDebugInfo(`Error initializing MediaPipe model: ${error.message}`);
-            showAlert(`Could not initialize MediaPipe model.`, 'error');
+            updateDebugInfo(`Error initializing model: ${error.message}`);
+            showAlert(`Could not initialize ${virtualBackground.model} model.`, 'error');
+            return false;
+        }
+    }
+
+    /**
+     * Reload the background model using settings from model factory
+     * @returns {Promise<boolean>}
+     */
+    async function reloadBackgroundModel() {
+        // Store the current background state
+        const wasEnabled = virtualBackground.enabled;
+        
+        // If enabled, toggle it off first
+        if (wasEnabled) {
+            await toggle(false); // Pass false to explicitly turn it off
+        }
+        
+        // Get current model type
+        const currentModelType = virtualBackground.model;
+        
+        // Get new model from factory using auto selection
+        const modelFactory = window.modelFactory;
+        if (!modelFactory) {
+            updateDebugInfo('Model factory not available');
+            return false;
+        }
+        
+        try {
+            // If user has a preferred model, that will be used by the factory
+            const newModel = await modelFactory.createModel();
+            virtualBackground.model = modelFactory.userPreferredModel || 
+                                     (await modelFactory.getDeviceCapabilities()).recommendedModel || 
+                                     'mediaPipe';
+            
+            // Clean up old model if present
+            if (virtualBackground.activeModel) {
+                try {
+                    virtualBackground.activeModel.dispose();
+                } catch (e) {
+                    updateDebugInfo(`Error disposing current model: ${e.message}`);
+                }
+            }
+            
+            // Save metrics from previous model if different
+            if (currentModelType.toLowerCase() !== virtualBackground.model.toLowerCase()) {
+                resetAndSaveMetrics(currentModelType);
+            }
+            
+            // Set the new model
+            virtualBackground.activeModel = newModel;
+            
+            // Update UI
+            uiElements.currentModelEl.textContent = virtualBackground.model;
+            
+            // Initialize the model
+            const success = await virtualBackground.activeModel.init();
+            
+            if (success) {
+                showAlert(`${virtualBackground.model} model loaded successfully`, 'success');
+            } else {
+                throw new Error(`Failed to initialize ${virtualBackground.model} model`);
+            }
+            
+            // If it was previously enabled, turn it back on
+            if (wasEnabled && success) {
+                await toggle(true); // Pass true to explicitly turn it on
+            }
+            
+            return success;
+        } catch (error) {
+            updateDebugInfo(`Error reloading model: ${error.message}`);
+            showAlert(`Could not reload model: ${error.message}`, 'error');
+            
+            // Restore original model
+            virtualBackground.model = currentModelType;
+            
+            // Try to reactivate previous model
+            if (wasEnabled) {
+                await toggle(true);
+            }
+            
             return false;
         }
     }
@@ -757,8 +863,31 @@ export function initVirtualBackground(uiElements) {
         getCurrentModel: () => virtualBackground.model,
         setContext,
         resetMetrics,
+        reloadBackgroundModel, // Add the new function to public API
         
-        // All other functions from the original file
+        // Performance metrics for ModelLabUI
+        getPerformanceMetrics: () => {
+            // Calculate current fps from frame times
+            const fps = frameTimes.length > 0 ? 
+                1000 / (frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length) : 0;
+                
+            // Calculate average segmentation time
+            const segmentationTime = segmentationTimes.length > 0 ? 
+                segmentationTimes.reduce((a, b) => a + b, 0) / segmentationTimes.length : 0;
+                
+            // Calculate total processing time based on last few frames
+            const totalProcessingTime = frameTimes.length > 0 ? 
+                frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length : 0;
+                
+            return {
+                fps,
+                segmentationTime,
+                totalProcessingTime,
+                totalFrames: totalProcessedFrames
+            };
+        },
+        
+        // All other existing functions
         applyVirtualBackground,
         processVideoFrames,
         updatePerformanceMetrics,
