@@ -13,7 +13,7 @@ export function initUI() {
         remoteVideo: document.getElementById('remoteVideo'),
         localCanvas: document.getElementById('localCanvas'),
         
-        // Control buttons
+        // Control buttons - using new icon-based controls
         toggleAudioButton: document.getElementById('toggleAudio'),
         toggleVideoButton: document.getElementById('toggleVideo'),
         endCallButton: document.getElementById('endCall'),
@@ -33,8 +33,7 @@ export function initUI() {
         backgroundSelector: document.getElementById('backgroundSelector'),
         customBackgroundInput: document.getElementById('customBackground'),
         
-        // Model selection
-        backgroundModelSelect: document.getElementById('backgroundModel'),
+        // Model selection - removed backgroundModelSelect as we only use MediaPipe now
         modelSelector: document.getElementById('modelSelector'),
         
         // Performance metrics
@@ -48,6 +47,9 @@ export function initUI() {
     // Set up WebRTC stats display
     setupWebRTCStats(uiElements);
     
+    // Set up tooltips for metrics
+    setupTooltips();
+    
     return uiElements;
 }
 
@@ -56,25 +58,16 @@ export function initUI() {
  * @param {Object} uiElements - References to UI elements
  */
 function setupWebRTCStats(uiElements) {
-    // Create stats overlay for local video
-    const localStatsOverlay = document.createElement('div');
-    localStatsOverlay.className = 'stats-overlay';
-    localStatsOverlay.id = 'localStatsOverlay';
+    // Use existing stats overlays from HTML instead of creating new ones
+    const localStatsOverlay = document.getElementById('localStatsOverlay');
+    const remoteStatsOverlay = document.getElementById('remoteStatsOverlay');
     
-    // Create stats overlay for remote video
-    const remoteStatsOverlay = document.createElement('div');
-    remoteStatsOverlay.className = 'stats-overlay';
-    remoteStatsOverlay.id = 'remoteStatsOverlay';
+    // Get video wrapper elements
+    const localVideoWrapper = uiElements.localVideo.closest('.video-wrapper');
+    const remoteVideoWrapper = uiElements.remoteVideo.closest('.video-wrapper');
     
-    // Add overlays to video wrappers
-    const localVideoWrapper = document.querySelector('.video-wrapper:first-child');
-    const remoteVideoWrapper = document.querySelector('.video-wrapper:last-child');
-    
-    if (localVideoWrapper) localVideoWrapper.appendChild(localStatsOverlay);
-    if (remoteVideoWrapper) remoteVideoWrapper.appendChild(remoteStatsOverlay);
-    
-    // Add hover event listeners
-    if (localVideoWrapper) {
+    // Add hover event listeners for local video stats
+    if (localVideoWrapper && localStatsOverlay) {
         localVideoWrapper.addEventListener('mouseenter', () => {
             updateLocalStats(uiElements);
             localStatsOverlay.style.opacity = '1';
@@ -88,7 +81,8 @@ function setupWebRTCStats(uiElements) {
         });
     }
     
-    if (remoteVideoWrapper) {
+    // Add hover event listeners for remote video stats
+    if (remoteVideoWrapper && remoteStatsOverlay) {
         remoteVideoWrapper.addEventListener('mouseenter', () => {
             updateRemoteStats(uiElements);
             remoteStatsOverlay.style.opacity = '1';
@@ -101,6 +95,34 @@ function setupWebRTCStats(uiElements) {
             clearInterval(uiElements.remoteStatsInterval);
         });
     }
+}
+
+/**
+ * Set up tooltips for performance metrics and other UI elements
+ */
+function setupTooltips() {
+    // Add tooltip behavior for all tooltip elements
+    document.addEventListener('DOMContentLoaded', () => {
+        const tooltips = document.querySelectorAll('.tooltip');
+        
+        tooltips.forEach(tooltip => {
+            tooltip.addEventListener('mouseenter', () => {
+                const tooltipText = tooltip.querySelector('.tooltiptext');
+                if (tooltipText) {
+                    tooltipText.style.visibility = 'visible';
+                    tooltipText.style.opacity = '1';
+                }
+            });
+            
+            tooltip.addEventListener('mouseleave', () => {
+                const tooltipText = tooltip.querySelector('.tooltiptext');
+                if (tooltipText) {
+                    tooltipText.style.visibility = 'hidden';
+                    tooltipText.style.opacity = '0';
+                }
+            });
+        });
+    });
 }
 
 /**
@@ -118,7 +140,8 @@ async function updateRemoteStats(uiElements) {
         if (uiElements.remoteVideo && uiElements.remoteVideo.videoWidth) {
             statsHtml += `
                 <div class="stats-item">
-                    <span>Resolution:</span> ${uiElements.remoteVideo.videoWidth}×${uiElements.remoteVideo.videoHeight}
+                    <div>Resolution:</div>
+                    <span id="remoteResolution">${uiElements.remoteVideo.videoWidth}×${uiElements.remoteVideo.videoHeight}</span>
                 </div>
             `;
         }
@@ -138,7 +161,8 @@ async function updateRemoteStats(uiElements) {
             if (inboundVideoStats.bytesReceived) {
                 statsHtml += `
                     <div class="stats-item">
-                        <span>Received:</span> ${formatBytes(inboundVideoStats.bytesReceived || 0)}
+                        <div>Received:</div>
+                        <span>${formatBytes(inboundVideoStats.bytesReceived || 0)}</span>
                     </div>
                 `;
             }
@@ -171,14 +195,16 @@ async function updateRemoteStats(uiElements) {
                     // Add to stats display
                     statsHtml += `
                         <div class="stats-item">
-                            <span>FPS:</span> ${calculatedFps || 'N/A'}
+                            <div>FPS:</div>
+                            <span>${calculatedFps || 'N/A'}</span>
                         </div>
                     `;
                 } else if (uiElements.remoteVideo.lastStatsCheck.fps) {
                     // Use previously calculated FPS if available
                     statsHtml += `
                         <div class="stats-item">
-                            <span>FPS:</span> ${uiElements.remoteVideo.lastStatsCheck.fps || 'N/A'}
+                            <div>FPS:</div>
+                            <span>${uiElements.remoteVideo.lastStatsCheck.fps || 'N/A'}</span>
                         </div>
                     `;
                 } else {
@@ -186,7 +212,8 @@ async function updateRemoteStats(uiElements) {
                     const approximateFps = Math.round(inboundVideoStats.framesDecoded / inboundVideoStats.totalDecodeTime);
                     statsHtml += `
                         <div class="stats-item">
-                            <span>FPS:</span> ${approximateFps || 'N/A'}
+                            <div>FPS:</div>
+                            <span>${approximateFps || 'N/A'}</span>
                         </div>
                     `;
                 }
@@ -196,16 +223,55 @@ async function updateRemoteStats(uiElements) {
                 const lossRate = (inboundVideoStats.packetsLost / (inboundVideoStats.packetsReceived + inboundVideoStats.packetsLost) * 100).toFixed(1);
                 statsHtml += `
                     <div class="stats-item">
-                        <span>Packet Loss:</span> ${lossRate}%
+                        <div>Packet Loss:</div>
+                        <span>${lossRate}%</span>
                     </div>
                 `;
+            }
+            
+            // Update packets element in HTML
+            statsHtml += `
+                <div class="stats-item">
+                    <div>Packets:</div>
+                    <span id="remotePackets">${inboundVideoStats.packetsReceived || '0'}</span>
+                </div>
+            `;
+            
+            // Update bitrate
+            if (inboundVideoStats.bytesReceived) {
+                const now = Date.now();
+                if (!uiElements.remoteVideo.lastBytesCheck) {
+                    uiElements.remoteVideo.lastBytesCheck = {
+                        time: now,
+                        bytes: inboundVideoStats.bytesReceived
+                    };
+                }
+                
+                const timeDiff = (now - uiElements.remoteVideo.lastBytesCheck.time) / 1000;
+                if (timeDiff >= 0.5) {
+                    const bytesDiff = inboundVideoStats.bytesReceived - uiElements.remoteVideo.lastBytesCheck.bytes;
+                    const bitrate = Math.round((bytesDiff * 8) / timeDiff / 1000); // kbps
+                    
+                    uiElements.remoteVideo.lastBytesCheck = {
+                        time: now,
+                        bytes: inboundVideoStats.bytesReceived
+                    };
+                    
+                    statsHtml += `
+                        <div class="stats-item">
+                            <div>Bitrate:</div>
+                            <span id="remoteBitrate">${bitrate} kbps</span>
+                        </div>
+                    `;
+                }
             }
         }
         
         if (connectionStats && connectionStats.currentRoundTripTime) {
             statsHtml += `
                 <div class="stats-item">
-                    <span>Latency:</span> ${(connectionStats.currentRoundTripTime * 1000).toFixed(0)} ms
+                    <div>Latency:</div>
+                    <span id="remoteLatency">${(connectionStats.currentRoundTripTime * 1000).toFixed(0)} ms</span>
                 </div>
             `;
         }
@@ -238,7 +304,8 @@ async function updateLocalStats(uiElements) {
             const settings = videoTrack.getSettings();
             statsHtml += `
                 <div class="stats-item">
-                    <span>Resolution:</span> ${settings.width || 'N/A'}×${settings.height || 'N/A'}
+                    <div>Resolution:</div>
+                    <span id="localResolution">${settings.width || 'N/A'}×${settings.height || 'N/A'}</span>
                 </div>
             `;
             
@@ -247,7 +314,8 @@ async function updateLocalStats(uiElements) {
             if (settings.frameRate) {
                 statsHtml += `
                     <div class="stats-item">
-                        <span>FPS:</span> ${Math.round(settings.frameRate)}
+                        <div>FPS:</div>
+                        <span>${Math.round(settings.frameRate)}</span>
                     </div>
                 `;
             }
@@ -256,7 +324,8 @@ async function updateLocalStats(uiElements) {
         if (audioTrack) {
             statsHtml += `
                 <div class="stats-item">
-                    <span>Audio:</span> ${audioTrack.enabled ? 'On' : 'Muted'}
+                    <div>Audio:</div>
+                    <span>${audioTrack.enabled ? 'On' : 'Muted'}</span>
                 </div>
             `;
         }
@@ -277,9 +346,59 @@ async function updateLocalStats(uiElements) {
             if (outboundVideoStats && outboundVideoStats.bytesSent) {
                 statsHtml += `
                     <div class="stats-item">
-                        <span>Sent:</span> ${formatBytes(outboundVideoStats.bytesSent || 0)}
+                        <div>Sent:</div>
+                        <span>${formatBytes(outboundVideoStats.bytesSent || 0)}</span>
                     </div>
                 `;
+                
+                // Update packets sent
+                statsHtml += `
+                    <div class="stats-item">
+                        <div>Packets Sent:</div>
+                        <span id="localPackets">${outboundVideoStats.packetsSent || '0'}</span>
+                    </div>
+                `;
+                
+                // Calculate bitrate
+                const now = Date.now();
+                if (!uiElements.localVideo.lastBytesCheck) {
+                    uiElements.localVideo.lastBytesCheck = {
+                        time: now,
+                        bytes: outboundVideoStats.bytesSent
+                    };
+                }
+                
+                const timeDiff = (now - uiElements.localVideo.lastBytesCheck.time) / 1000;
+                if (timeDiff >= 0.5) {
+                    const bytesDiff = outboundVideoStats.bytesSent - uiElements.localVideo.lastBytesCheck.bytes;
+                    const bitrate = Math.round((bytesDiff * 8) / timeDiff / 1000); // kbps
+                    
+                    uiElements.localVideo.lastBytesCheck = {
+                        time: now,
+                        bytes: outboundVideoStats.bytesSent
+                    };
+                    
+                    statsHtml += `
+                        <div class="stats-item">
+                            <div>Bitrate:</div>
+                            <span id="localBitrate">${bitrate} kbps</span>
+                        </div>
+                    `;
+                }
+                
+                // Add codec info if available
+                if (outboundVideoStats.codecId) {
+                    stats.forEach(report => {
+                        if (report.id === outboundVideoStats.codecId) {
+                            statsHtml += `
+                                <div class="stats-item">
+                                    <div>Codec:</div>
+                                    <span id="localCodec">${report.mimeType.split('/')[1]}</span>
+                                </div>
+                            `;
+                        }
+                    });
+                }
                 
                 // Calculate FPS for outbound stream using frame counts and timestamps
                 if (outboundVideoStats.framesSent) {
@@ -311,7 +430,8 @@ async function updateLocalStats(uiElements) {
                         if (!videoTrack?.getSettings()?.frameRate) {
                             statsHtml += `
                                 <div class="stats-item">
-                                    <span>FPS:</span> ${calculatedFps || 'N/A'}
+                                    <div>FPS:</div>
+                                    <span>${calculatedFps || 'N/A'}</span>
                                 </div>
                             `;
                         }
@@ -322,7 +442,8 @@ async function updateLocalStats(uiElements) {
                         if (!videoTrack?.getSettings()?.frameRate) {
                             statsHtml += `
                                 <div class="stats-item">
-                                    <span>FPS:</span> ${uiElements.localVideo.lastStatsCheck.fps || 'N/A'}
+                                    <div>FPS:</div>
+                                    <span>${uiElements.localVideo.lastStatsCheck.fps || 'N/A'}</span>
                                 </div>
                             `;
                         }

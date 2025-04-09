@@ -4,689 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Segmentation Lab - AI Background Model Testing</title>
-    <!-- Add TensorFlow.js and BodyPix dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.4.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0"></script>
+    <!-- We only need MediaPipe now, removing other dependencies -->
     <!-- Add MediaPipe Selfie Segmentation -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
-    <!-- Add SAM2 model (using segment-anything-onnx package) -->
-    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <!-- Add Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #4F46E5;
-            --primary-hover: #4338CA;
-            --danger-color: #EF4444;
-            --danger-hover: #DC2626;
-            --success-color: #10B981;
-            --success-hover: #059669;
-            --neutral-50: #F9FAFB;
-            --neutral-100: #F3F4F6;
-            --neutral-200: #E5E7EB;
-            --neutral-300: #D1D5DB;
-            --neutral-500: #6B7280;
-            --neutral-700: #374151;
-            --neutral-900: #111827;
-            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --radius-sm: 4px;
-            --radius: 8px;
-            --radius-lg: 12px;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
-            color: var(--neutral-900);
-            background-color: var(--neutral-50);
-            line-height: 1.5;
-        }
-
-        h1 {
-            text-align: center;
-            font-weight: 700;
-            font-size: 2rem;
-            margin-bottom: 1.5rem;
-            color: var(--neutral-900);
-        }
-
-        h3 {
-            font-weight: 600;
-            font-size: 1.25rem;
-            margin-bottom: 0.75rem;
-            color: var(--neutral-700);
-        }
-
-        .subtitle {
-            text-align: center;
-            font-size: 1rem;
-            color: var(--neutral-500);
-            margin-top: -1rem;
-            margin-bottom: 2rem;
-        }
-
-        /* Layout containers */
-        #setup-panel {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: white;
-            border-radius: var(--radius);
-            padding: 2rem;
-            box-shadow: var(--shadow);
-        }
-
-        #call-panel {
-            background-color: white;
-            border-radius: var(--radius);
-            padding: 2rem;
-            box-shadow: var(--shadow);
-        }
-
-        /* Video container */
-        .video-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        .video-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 480px;
-            border-radius: var(--radius);
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            background-color: var(--neutral-900);
-            transition: transform 0.2s ease-in-out;
-        }
-
-        .video-wrapper:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .video-wrapper h3 {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            background-color: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 4px 8px;
-            border-radius: var(--radius-sm);
-            font-size: 0.875rem;
-            z-index: 10;
-            margin: 0;
-        }
-
-        video {
-            width: 100%;
-            height: 360px;
-            object-fit: cover;
-            border-radius: var(--radius);
-            background-color: var(--neutral-900);
-            display: block;
-        }
-
-        canvas {
-            display: none;
-        }
-
-        /* Control buttons */
-        .controls {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 24px;
-            padding: 16px 0;
-            border-top: 1px solid var(--neutral-200);
-            border-bottom: 1px solid var(--neutral-200);
-        }
-
-        .meeting-controls {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin: 24px 0;
-        }
-
-        /* Button styles */
-        button {
-            padding: 10px 16px;
-            cursor: pointer;
-            border-radius: var(--radius-sm);
-            border: none;
-            background-color: var(--primary-color);
-            color: white;
-            font-weight: 500;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: var(--shadow-sm);
-        }
-
-        button:hover {
-            background-color: var(--primary-hover);
-            box-shadow: var(--shadow);
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
-
-        button i {
-            margin-right: 6px;
-        }
-
-        button.active {
-            background-color: var(--danger-color);
-        }
-
-        button.active:hover {
-            background-color: var(--danger-hover);
-        }
-
-        button.secondary {
-            background-color: white;
-            color: var(--neutral-700);
-            border: 1px solid var(--neutral-300);
-        }
-
-        button.secondary:hover {
-            background-color: var(--neutral-100);
-            border-color: var (--neutral-500);
-        }
-
-        button.success {
-            background-color: var(--success-color);
-        }
-
-        button.success:hover {
-            background-color: var(--success-hover);
-        }
-
-        button.danger {
-            background-color: var(--danger-color);
-        }
-
-        button.danger:hover {
-            background-color: var(--danger-hover);
-        }
-
-        /* Form elements */
-        input {
-            padding: 10px 16px;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--neutral-300);
-            font-size: 0.875rem;
-            width: 100%;
-            max-width: 240px;
-            transition: border-color 0.2s ease;
-            font-family: 'Inter', sans-serif;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        select {
-            padding: 10px 16px;
-            border-radius: var(--radius-sm);
-            border: 1px solid var(--neutral-300);
-            background-color: white;
-            font-size: 0.875rem;
-            transition: border-color 0.2s ease;
-            font-family: 'Inter', sans-serif;
-            cursor: pointer;
-        }
-
-        select:focus {
-            outline: none;
-            border-color: var (--primary-color);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        /* Helper classes */
-        .hide {
-            display: none;
-        }
-
-        /* Background selector */
-        .background-selector {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin: 24px 0;
-            padding: 16px;
-            background-color: var(--neutral-100);
-            border-radius: var(--radius);
-        }
-
-        .background-option {
-            width: 100px;
-            height: 56px;
-            border-radius: var (--radius-sm);
-            cursor: pointer;
-            border: 2px solid transparent;
-            overflow: hidden;
-            transition: all 0.2s ease;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .background-option:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow);
-        }
-
-        .background-option.active {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-        }
-
-        .background-option img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 2px;
-        }
-
-        /* Model selector */
-        .model-selector {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            margin: 16px 0;
-            flex-wrap: wrap;
-        }
-
-        /* Performance metrics */
-        .performance-metrics {
-            margin: 24px 0;
-            padding: 16px;
-            background-color: var(--neutral-100);
-            border-radius: var (--radius);
-        }
-
-        .performance-metrics h3 {
-            font-size: 1rem;
-            margin-bottom: 12px;
-            color: var (--neutral-700);
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-        }
-
-        .metric-item {
-            background-color: white;
-            padding: 12px;
-            border-radius: var(--radius-sm);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .metric-item p {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.875rem;
-            color: var(--neutral-700);
-        }
-
-        .metric-item span {
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-
-        /* Meeting info */
-        .meeting-info {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            margin: 24px 0;
-            flex-wrap: wrap;
-            padding: 12px;
-            background-color: var(--neutral-100);
-            border-radius: var(--radius);
-        }
-
-        .meeting-info p {
-            margin: 0;
-            font-size: 0.875rem;
-            color: var(--neutral-700);
-        }
-
-        .meeting-info span {
-            font-weight: 600;
-            color: var(--primary-color);
-            background-color: rgba(79, 70, 229, 0.1);
-            padding: 4px 8px;
-            border-radius: var(--radius-sm);
-        }
-
-        /* Debug info */
-        .debug-info {
-            margin-top: 16px;
-            font-size: 0.75rem;
-            color: var(--neutral-500);
-            text-align: center;
-            padding: 8px;
-            background-color: var(--neutral-100);
-            border-radius: var(--radius-sm);
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            body {
-                padding: 12px;
-            }
-            
-            .video-container {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .meeting-controls, .controls {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            input {
-                max-width: 100%;
-            }
-        }
-
-        /* Custom alert styles */
-        .app-alert {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            max-width: 350px;
-            background-color: white;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            padding: 16px;
-            z-index: 1000;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            transform: translateX(400px);
-            opacity: 0;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-
-        .app-alert.show {
-            transform: translateX(0);
-            opacity: 1;
-        }
-
-        .app-alert .alert-icon {
-            font-size: 20px;
-            color: var(--primary-color);
-            flex-shrink: 0;
-        }
-
-        .app-alert.error .alert-icon {
-            color: var(--danger-color);
-        }
-
-        .app-alert.success .alert-icon {
-            color: var(--success-color);
-        }
-
-        .app-alert .alert-content {
-            flex-grow: 1;
-        }
-
-        .app-alert .alert-title {
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: var(--neutral-900);
-        }
-
-        .app-alert .alert-message {
-            font-size: 0.875rem;
-            color: var(--neutral-700);
-        }
-
-        .app-alert .close-alert {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: none;
-            border: none;
-            color: var(--neutral-500);
-            padding: 0;
-            font-size: 14px;
-            cursor: pointer;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: none;
-        }
-
-        .app-alert .close-alert:hover {
-            color: var(--neutral-900);
-            background: none;
-            box-shadow: none;
-        }
-
-        /* Custom background preview */
-        .background-preview {
-            margin-top: 12px;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .background-preview-image {
-            max-width: 300px;
-            max-height: 150px;
-            border-radius: var(--radius-sm);
-            object-fit: cover;
-            box-shadow: var(--shadow-sm);
-        }
-        
-        /* Background option improvements */
-        .background-option-none {
-            background-color: white;
-            border: 1px solid var(--neutral-300);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 500;
-            color: var(--neutral-700);
-            font-size: 0.875rem;
-        }
-        
-        .background-option-blur {
-            background-color: #2d3748;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-            font-weight: 600;
-            color: white;
-            font-size: 0.875rem;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-        }
-        
-        .background-option-blur::before {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='56' viewBox='0 0 100 56'%3E%3Crect width='100' height='56' fill='%233a4a63'/%3E%3Cpath d='M0 28h100M50 0v56' stroke='%234a5568' stroke-width='2' opacity='0.7'/%3E%3C/svg%3E");
-            filter: blur(4px);
-        }
-        
-        .background-option-blur::after {
-            content: "Blur";
-            position: absolute;
-            font-weight: 600;
-            color: white;
-            font-size: 0.9rem;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-            z-index: 2;
-        }
-
-        .metrics-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-            background-color: white;
-            border-radius: var(--radius-sm);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .metrics-table th, .metrics-table td {
-            padding: 8px 12px;
-            text-align: left;
-            font-size: 0.875rem;
-            border-bottom: 1px solid var(--neutral-200);
-        }
-
-        .metrics-table th {
-            background-color: var(--neutral-100);
-            font-weight: 600;
-            color: var(--neutral-700);
-        }
-
-        .metrics-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .metrics-table tr.current-model {
-            background-color: rgba(79, 70, 229, 0.1);
-        }
-
-        .metrics-table tr:hover {
-            background-color: var(--neutral-100);
-        }
-
-        .mt-4 {
-            margin-top: 24px;
-        }
-
-        .table-responsive {
-            overflow-x: auto;
-            margin-bottom: 16px;
-        }
-
-        .footer {
-            margin-top: 2rem;
-            padding: 1rem;
-            text-align: center;
-            font-size: 0.875rem;
-            color: var(--neutral-500);
-            border-top: 1px solid var(--neutral-200);
-        }
-
-        .version {
-            font-size: 0.75rem;
-            margin-top: 0.5rem;
-        }
-
-        /* WebRTC stats overlay */
-        .stats-overlay {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            width: auto;
-            max-width: 250px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 8px;
-            font-size: 11px;
-            z-index: 10;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            max-height: 200px;
-            overflow-y: auto;
-            border-radius: var(--radius-sm);
-            box-shadow: var(--shadow);
-        }
-        
-        .stats-title {
-            font-weight: 600;
-            font-size: 12px;
-            margin-bottom: 6px;
-            color: var(--primary-color);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            padding-bottom: 2px;
-        }
-        
-        .stats-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 3px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 3px;
-            gap: 12px;
-        }
-        
-        .stats-item span {
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.7);
-        }
-        
-        .stats-item.error {
-            color: var(--danger-color);
-        }
-        
-        /* Comparison alert styling */
-        .comparison-alert {
-            font-size: 0.875rem;
-        }
-        
-        .comparison-alert ul {
-            margin: 8px 0;
-            padding-left: 20px;
-        }
-        
-        .comparison-alert li {
-            margin-bottom: 4px;
-        }
-        
-        .comparison-alert strong {
-            color: var(--primary-color);
-        }
-    </style>
+    <!-- Combined styles -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Segmentation Lab</h1>
-    <p class="subtitle">Compare and evaluate multiple AI background segmentation models in real-time</p>
+    <header>
+        <h1>Segmentation Lab</h1>
+        <p class="subtitle">Advanced AI Background Removal & Comparison Testing Environment</p>
+    </header>
     
     <div id="setup-panel">
         <div class="meeting-controls">
@@ -697,100 +33,178 @@
     </div>
     
     <div id="call-panel" class="hide">
+        <!-- Full-width meeting info header -->
+        <div class="meeting-info-compact">
+            <p>
+                <i class="fas fa-link"></i>
+                Meeting Code: <span class="code" id="meetingCodeDisplay"></span>
+            </p>
+            <div class="actions">
+                <button id="copyMeetingCode" class="secondary" title="Copy meeting code">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button id="copyMeetingLink" class="secondary" title="Copy shareable link">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+                <button id="endCall" class="danger" title="End the call">
+                    <i class="fas fa-phone-slash"></i> End Call
+                </button>
+            </div>
+        </div>
+        
         <div class="video-container">
             <div class="video-wrapper">
                 <h3><i class="fas fa-user"></i> You</h3>
                 <video id="localVideo" autoplay playsinline muted></video>
                 <canvas id="localCanvas"></canvas>
+                
+                <!-- WebRTC stats overlay for local video -->
+                <div class="stats-overlay" id="localStatsOverlay">
+                    <div class="stats-title">WebRTC Stats</div>
+                    <div class="stats-item">
+                        <div>Resolution:</div>
+                        <span id="localResolution">-</span>
+                    </div>
+                    <div class="stats-item">
+                        <div>Bitrate:</div>
+                        <span id="localBitrate">-</span>
+                    </div>
+                    <div class="stats-item">
+                        <div>Packets Sent:</div>
+                        <span id="localPackets">-</span>
+                    </div>
+                    <div class="stats-item">
+                        <div>Codec:</div>
+                        <span id="localCodec">-</span>
+                    </div>
+                </div>
+                
+                <!-- Video controls overlay -->
+                <div class="video-controls-overlay">
+                    <button id="toggleAudioOverlay" class="icon-button active" title="Toggle microphone">
+                        <i class="fas fa-microphone-slash"></i>
+                    </button>
+                    <button id="toggleVideoOverlay" class="icon-button" title="Toggle camera">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button id="toggleBackgroundOverlay" class="icon-button secondary" title="Toggle virtual background">
+                        <i class="fas fa-palette"></i>
+                    </button>
+                </div>
             </div>
             <div class="video-wrapper">
                 <h3><i class="fas fa-user-friends"></i> Remote</h3>
                 <video id="remoteVideo" autoplay playsinline></video>
+                
+                <!-- WebRTC stats overlay for remote video -->
+                <div class="stats-overlay" id="remoteStatsOverlay">
+                    <div class="stats-title">WebRTC Stats</div>
+                    <div class="stats-item">
+                        <div>Resolution:</div>
+                        <span id="remoteResolution">-</span>
+                    </div>
+                    <div class="stats-item">
+                        <div>Bitrate:</div>
+                        <span id="remoteBitrate">-</span>
+                    </div>
+                    <div class="stats-item">
+                        <div>Packets:</div>
+                        <span id="remotePackets">-</span>
+                    </div>
+                    <div class="stats-item">
+                        <div>Latency:</div>
+                        <span id="remoteLatency">-</span>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <div class="controls">
-            <button id="toggleAudio"><i class="fas fa-microphone"></i> Mute Audio</button>
-            <button id="toggleVideo"><i class="fas fa-video"></i> Disable Video</button>
-            <button id="toggleBackground"><i class="fas fa-palette"></i> Virtual Background: Off</button>
-            <button id="endCall" class="danger"><i class="fas fa-phone-slash"></i> End Call</button>
+        <!-- Original call controls (hidden when using overlay) -->
+        <div class="button-row hidden-controls">
+            <button id="toggleAudio" class="icon-button active" title="Toggle microphone">
+                <i class="fas fa-microphone-slash"></i>
+            </button>
+            <button id="toggleVideo" class="icon-button" title="Toggle camera">
+                <i class="fas fa-video"></i>
+            </button>
+            <button id="toggleBackground" class="icon-button secondary" title="Toggle virtual background">
+                <i class="fas fa-palette"></i>
+            </button>
         </div>
         
-        <div class="model-selector hide" id="modelSelector">
-            <label for="backgroundModel"><i class="fas fa-flask"></i> Test Model:</label>
-            <select id="backgroundModel">
-                <option value="mediaPipe">MediaPipe (Balanced)</option>
-                <option value="bodyPix">BodyPix (TensorFlow.js)</option>
-                <option value="webgl">WebGL (Fastest)</option>
-                <option value="sam2">SAM2 (Highest Quality)</option>
-            </select>
+        <!-- Background options selector -->
+        <div class="selector-row hide" id="modelSelector">
+            <div class="selector-group" id="backgroundSelector">
+                <span><i class="fas fa-image"></i> Background:</span>
+                <div class="background-options">
+                    <div class="bg-option active" data-bg="none" title="No background effect">
+                        <div style="background-color:#f5f5f5; height:100%; display:flex; align-items:center; justify-content:center">
+                            <i class="fas fa-times text-sm"></i>
+                        </div>
+                        <div class="bg-option-label">None</div>
+                    </div>
+                    <div class="bg-option" data-bg="blur" title="Blur your background">
+                        <div style="background-color:#2d3748; height:100%; filter:blur(2px)"></div>
+                        <div class="bg-option-label">Blur</div>
+                    </div>
+                    <div class="bg-option" data-bg="beach" title="Beach background">
+                        <img src="assets/beach.png" alt="Beach">
+                        <div class="bg-option-label">Beach</div>
+                    </div>
+                    <div class="bg-option" data-bg="office" title="Office background">
+                        <img src="assets/office.png" alt="Office">
+                        <div class="bg-option-label">Office</div>
+                    </div>
+                    <button id="uploadBackground" class="bg-option" style="background-color:white; border:1px dashed var(--neutral-300)" title="Upload custom background">
+                        <i class="fas fa-upload" style="color:var(--neutral-500)"></i>
+                        <div class="bg-option-label">Custom</div>
+                    </button>
+                </div>
+                <input type="file" id="customBackground" accept="image/*" style="display: none;">
+            </div>
         </div>
         
-        <div class="background-selector hide" id="backgroundSelector">
-            <div class="background-option background-option-none active" data-bg="none">
-                None
-            </div>
-            <div class="background-option background-option-blur" data-bg="blur">
-                Blur
-            </div>
-            <div class="background-option" data-bg="beach">
-                <img src="assets/beach.png" alt="Beach">
-            </div>
-            <div class="background-option" data-bg="office">
-                <img src="assets/office.png" alt="Office">
-            </div>
-            <input type="file" id="customBackground" accept="image/*" style="display: none;">
-            <button id="uploadBackground" class="secondary"><i class="fas fa-upload"></i> Upload Custom</button>
-        </div>
-        
+        <!-- Compact performance metrics -->
         <div class="performance-metrics hide" id="performanceMetrics">
-            <h3><i class="fas fa-tachometer-alt"></i> Segmentation Model Metrics</h3>
+            <h3 class="flex items-center gap-2">
+                <i class="fas fa-tachometer-alt"></i> 
+                Background Processing Metrics 
+                <span class="tooltip" style="font-size:0.8rem; color:var(--neutral-500)">
+                    <i class="fas fa-info-circle"></i>
+                    <span class="tooltiptext">Performance metrics for MediaPipe segmentation model. Lower segmentation and processing times are better.</span>
+                </span>
+            </h3>
             
-            <div class="metrics-grid">
-                <div class="metric-item">
-                    <p>Model: <span id="currentModel">None</span></p>
+            <div class="compact-metrics">
+                <div class="metric-card tooltip">
+                    <div class="label">Model</div>
+                    <div class="value" id="currentModel">MediaPipe</div>
+                    <span class="tooltiptext">Current segmentation model (MediaPipe)</span>
                 </div>
-                <div class="metric-item">
-                    <p>FPS: <span id="fps">0</span></p>
+                <div class="metric-card tooltip">
+                    <div class="label">FPS</div>
+                    <div class="value" id="fps">0</div>
+                    <span class="tooltiptext">Frames per second - higher is better</span>
                 </div>
-                <div class="metric-item">
-                    <p>Segmentation: <span id="segmentationTime">0</span> ms</p>
+                <div class="metric-card tooltip">
+                    <div class="label">Segmentation Time</div>
+                    <div class="value"><span id="segmentationTime">0</span><span class="unit">ms</span></div>
+                    <span class="tooltiptext">Time to calculate segmentation mask - lower is better</span>
                 </div>
-                <div class="metric-item">
-                    <p>Processing: <span id="frameProcessingTime">0</span> ms</p>
+                <div class="metric-card tooltip">
+                    <div class="label">Processing Time</div>
+                    <div class="value"><span id="frameProcessingTime">0</span><span class="unit">ms</span></div>
+                    <span class="tooltiptext">Total frame processing time - lower is better</span>
                 </div>
-                <div class="metric-item">
-                    <p>Duration: <span id="sessionDuration">00:00</span></p>
+                <div class="metric-card">
+                    <div class="label">Session Duration</div>
+                    <div class="value" id="sessionDuration">00:00</div>
                 </div>
-                <div class="metric-item">
-                    <p>Frames: <span id="framesProcessed">0</span></p>
+                <div class="metric-card">
+                    <div class="label">Frames Processed</div>
+                    <div class="value" id="framesProcessed">0</div>
                 </div>
             </div>
-            
-            <div id="modelComparisonSection" class="mt-4 hide">
-                <h3><i class="fas fa-balance-scale"></i> Model Comparison</h3>
-                <div class="table-responsive">
-                    <table class="metrics-table">
-                        <thead>
-                            <tr>
-                                <th>Model</th>
-                                <th>FPS</th>
-                                <th>Seg. Time</th>
-                                <th>Process Time</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modelComparisonBody">
-                            <!-- Model comparison data will be inserted here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <div class="meeting-info">
-            <p><i class="fas fa-link"></i> Meeting Code: <span id="meetingCodeDisplay"></span></p>
-            <button id="copyMeetingCode" class="secondary"><i class="fas fa-copy"></i> Copy Code</button>
-            <button id="copyMeetingLink" class="secondary"><i class="fas fa-share-alt"></i> Copy Link</button>
         </div>
         
         <div class="debug-info" id="debugInfo">
@@ -798,9 +212,21 @@
         </div>
     </div>
 
-    <!-- Footer with project info -->
+    <!-- Enhanced footer with project info and social links -->
     <footer id="footer" class="footer">
-        <p>Segmentation Lab: WebRTC testing environment for AI-powered virtual background technologies</p>
+        <p><strong>Segmentation Lab</strong> - A WebRTC testing environment with MediaPipe background segmentation</p>
+        <p>This application demonstrates real-time performance of MediaPipe segmentation model</p>
+        <div class="footer-links">
+            <a href="https://github.com/Ketan-K/segmentation-lab" target="_blank">
+                <i class="fab fa-github"></i> GitHub
+            </a>
+            <a href="https://in.linkedin.com/in/ketan-k" target="_blank">
+                <i class="fab fa-linkedin"></i> LinkedIn
+            </a>
+            <a href="#" style="color:var(--primary-color);text-decoration:none;">
+                <i class="fas fa-book"></i> Documentation
+            </a>
+        </div>
         <p class="version">Version 1.0.0</p>
     </footer>
 

@@ -29,10 +29,7 @@ export function initVirtualBackground(uiElements) {
         },
         // Model metrics storage for comparison
         modelMetrics: {
-            bodyPix: { fps: 0, segTime: 0, processTime: 0 },
-            mediaPipe: { fps: 0, segTime: 0, processTime: 0 },
-            webgl: { fps: 0, segTime: 0, processTime: 0 },
-            sam2: { fps: 0, segTime: 0, processTime: 0 }
+            mediaPipe: { fps: 0, segTime: 0, processTime: 0 }
         }
     };
 
@@ -79,8 +76,8 @@ export function initVirtualBackground(uiElements) {
         virtualBackground.type = type;
         updateDebugInfo('Background type set to: ' + type);
         
-        // Update UI
-        const options = document.querySelectorAll('.background-option');
+        // Update UI - new UI uses bg-option class instead of background-option
+        const options = document.querySelectorAll('.bg-option');
         options.forEach(option => {
             if (option.dataset.bg === type) {
                 option.classList.add('active');
@@ -95,51 +92,24 @@ export function initVirtualBackground(uiElements) {
      * @returns {Promise<boolean>} - Whether model was loaded successfully
      */
     async function loadSelectedModel() {
-        const modelType = uiElements.backgroundModelSelect.value;
-        virtualBackground.model = modelType;
-        uiElements.currentModelEl.textContent = modelType;
+        // Only MediaPipe model is available now
+        virtualBackground.model = 'mediaPipe';
+        uiElements.currentModelEl.textContent = 'mediaPipe';
         
         try {
-            // Import and create the model based on selected type
-            switch (modelType) {
-                case 'bodyPix': {
-                    const BodyPixModel = (await import('../../models/BodyPixModel.js')).default;
-                    virtualBackground.activeModel = new BodyPixModel(updateDebugInfo);
-                    break;
-                }
-                
-                case 'mediaPipe': {
-                    const MediaPipeModel = (await import('../../models/MediaPipeModel.js')).default;
-                    virtualBackground.activeModel = new MediaPipeModel(updateDebugInfo);
-                    break;
-                }
-                
-                case 'webgl': {
-                    const WebGLModel = (await import('../../models/WebGLModel.js')).default;
-                    virtualBackground.activeModel = new WebGLModel(updateDebugInfo);
-                    break;
-                }
-                
-                case 'sam2': {
-                    const SAM2Model = (await import('../../models/SAM2Model.js')).default;
-                    virtualBackground.activeModel = new SAM2Model(updateDebugInfo);
-                    break;
-                }
-                    
-                default:
-                    updateDebugInfo('Unknown model type: ' + modelType);
-                    return false;
-            }
+            // Import and create the MediaPipe model
+            const MediaPipeModel = (await import('../../models/MediaPipeModel.js')).default;
+            virtualBackground.activeModel = new MediaPipeModel(updateDebugInfo);
             
             // Initialize the model
             const success = await virtualBackground.activeModel.init();
             if (success) {
-                showAlert(`${modelType} model initialized successfully`, 'success');
+                showAlert(`MediaPipe model initialized successfully`, 'success');
             }
             return success;
         } catch (error) {
-            updateDebugInfo(`Error initializing ${modelType} model: ${error.message}`);
-            showAlert(`Could not initialize ${modelType} model. Please try another model.`, 'error');
+            updateDebugInfo(`Error initializing MediaPipe model: ${error.message}`);
+            showAlert(`Could not initialize MediaPipe model.`, 'error');
             return false;
         }
     }
@@ -310,11 +280,13 @@ export function initVirtualBackground(uiElements) {
         virtualBackground.enabled = !virtualBackground.enabled;
         
         if (virtualBackground.enabled) {
-            // Update UI
-            uiElements.toggleBackgroundButton.textContent = 'Virtual Background: On';
+            // Update UI - using the new icon button
             uiElements.toggleBackgroundButton.classList.add('active');
-            uiElements.toggleBackgroundButton.innerHTML = '<i class="fas fa-palette"></i> Virtual Background: On';
-            uiElements.backgroundSelector.classList.remove('hide');
+            uiElements.toggleBackgroundButton.innerHTML = '<i class="fas fa-palette"></i>';
+            uiElements.toggleBackgroundButton.title = 'Disable virtual background';
+            
+            // Show the model selector if it exists
+            uiElements.modelSelector.classList.remove('hide');
             uiElements.performanceMetrics.classList.remove('hide');
             
             // Reset metrics when enabling
@@ -330,10 +302,10 @@ export function initVirtualBackground(uiElements) {
             if (!await loadSelectedModel()) {
                 // If model loading fails, disable virtual background
                 virtualBackground.enabled = false;
-                uiElements.toggleBackgroundButton.textContent = 'Virtual Background: Off';
                 uiElements.toggleBackgroundButton.classList.remove('active');
-                uiElements.toggleBackgroundButton.innerHTML = '<i class="fas fa-palette"></i> Virtual Background: Off';
-                uiElements.backgroundSelector.classList.add('hide');
+                uiElements.toggleBackgroundButton.innerHTML = '<i class="fas fa-palette"></i>';
+                uiElements.toggleBackgroundButton.title = 'Enable virtual background';
+                uiElements.modelSelector.classList.add('hide');
                 uiElements.performanceMetrics.classList.add('hide');
                 uiElements.localCanvas.style.display = 'none';
                 return;
@@ -393,11 +365,11 @@ export function initVirtualBackground(uiElements) {
             
             updateDebugInfo('Virtual background enabled: ' + virtualBackground.model);
         } else {
-            // Update UI
-            uiElements.toggleBackgroundButton.textContent = 'Virtual Background: Off';
+            // Update UI - using the new icon button
             uiElements.toggleBackgroundButton.classList.remove('active');
-            uiElements.toggleBackgroundButton.innerHTML = '<i class="fas fa-palette"></i> Virtual Background: Off';
-            uiElements.backgroundSelector.classList.add('hide');
+            uiElements.toggleBackgroundButton.innerHTML = '<i class="fas fa-palette"></i>';
+            uiElements.toggleBackgroundButton.title = 'Enable virtual background';
+            uiElements.modelSelector.classList.add('hide');
             uiElements.performanceMetrics.classList.add('hide');
             
             // Stop metrics updates
@@ -495,6 +467,17 @@ export function initVirtualBackground(uiElements) {
         // Update session metrics
         document.getElementById('sessionDuration').textContent = formatTime(sessionDuration);
         document.getElementById('framesProcessed').textContent = totalProcessedFrames.toString();
+        
+        // Update overlay metrics
+        const currentModelOverlay = document.getElementById('currentModelOverlay');
+        const fpsOverlay = document.getElementById('fpsOverlay');
+        const segmentationTimeOverlay = document.getElementById('segmentationTimeOverlay');
+        const frameProcessingTimeOverlay = document.getElementById('frameProcessingTimeOverlay');
+        
+        if (currentModelOverlay) currentModelOverlay.textContent = virtualBackground.model;
+        if (fpsOverlay) fpsOverlay.textContent = fps.toFixed(1);
+        if (segmentationTimeOverlay) segmentationTimeOverlay.textContent = `${avgSegmentationTime.toFixed(2)}ms`;
+        if (frameProcessingTimeOverlay) frameProcessingTimeOverlay.textContent = `${avgFrameProcessTime.toFixed(2)}ms`;
     }
 
     /**
@@ -746,18 +729,8 @@ export function initVirtualBackground(uiElements) {
     uiElements.toggleBackgroundButton.addEventListener('click', toggle);
     uiElements.uploadBackgroundButton.addEventListener('click', uploadCustomBackground);
     uiElements.customBackgroundInput.addEventListener('change', handleCustomBackgroundSelected);
-    uiElements.backgroundModelSelect.addEventListener('change', async () => {
-        // Store previous model name
-        const oldModel = virtualBackground.model;
-        
-        // Save metrics from the old model before loading the new one
-        resetAndSaveMetrics(oldModel);
-        
-        // Load the new model if virtual background is enabled
-        if (virtualBackground.enabled) {
-            await loadSelectedModel();
-        }
-    });
+    
+    // Removed the backgroundModelSelect event listener since we only have MediaPipe now
 
     // Background option selection
     document.querySelectorAll('.background-option').forEach(option => {
@@ -783,6 +756,21 @@ export function initVirtualBackground(uiElements) {
         isEnabled: () => virtualBackground.enabled,
         getCurrentModel: () => virtualBackground.model,
         setContext,
-        resetMetrics
+        resetMetrics,
+        
+        // All other functions from the original file
+        applyVirtualBackground,
+        processVideoFrames,
+        updatePerformanceMetrics,
+        startMetricsUpdates,
+        stopMetricsUpdates,
+        updateMetricsDisplay,
+        resetAndSaveMetrics,
+        showMetricsComparisonAlert,
+        updateComparisonMetrics,
+        createComparisonSection,
+        handleCustomBackgroundSelected,
+        createOrShowCustomBackgroundOption,
+        showCustomBackgroundPreview
     };
 }

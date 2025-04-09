@@ -1,11 +1,5 @@
 // Main application entry point - imports and initializes all modules
 
-// Import model implementations
-import BodyPixModel from './models/BodyPixModel.js';
-import MediaPipeModel from './models/MediaPipeModel.js';
-import WebGLModel from './models/WebGLModel.js';
-import SAM2Model from './models/SAM2Model.js';
-
 // Import services
 import { initSocket } from './js/services/socketService.js';
 import { setupWebRTCConnection } from './js/services/webrtcService.js';

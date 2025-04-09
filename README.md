@@ -14,10 +14,10 @@ Try the application online: [https://segmentation-lab.onrender.com/](https://seg
 - 🎥 Real-time video conferencing using WebRTC
 - 🔗 Easy meeting creation and joining with shareable meeting codes
 - 🖼️ Multiple background options with support for:
-  - SAM2 (Segment Anything Model 2)
-  - MediaPipe Selfie Segmentation
-  - TensorFlow BodyPix
-  - WebGL-based segmentation
+  - MediaPipe Selfie Segmentation (currently available)
+  - SAM2 (Segment Anything Model 2) - coming soon
+  - TensorFlow BodyPix - coming soon
+  - WebGL-based segmentation - coming soon
 - 🏝️ Built-in background images (beach, office) and custom background upload
 - 🎛️ Audio/video controls
 
@@ -32,8 +32,8 @@ Try the application online: [https://segmentation-lab.onrender.com/](https://seg
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/sam2-webrtc.git
-   cd sam2-webrtc
+   git clone https://github.com/Ketan-K/segmentation-lab.git
+   cd segmentation-lab
    ```
 
 2. Install dependencies:
@@ -50,6 +50,23 @@ Try the application online: [https://segmentation-lab.onrender.com/](https://seg
    ```
    http://localhost:3000
    ```
+
+### Development
+
+This project includes a `.gitignore` file that excludes:
+- Node.js dependencies (`node_modules`)
+- Environment files (`.env`, etc.)
+- Build artifacts
+- Log files
+- Editor-specific files
+- Cache files
+
+For development:
+1. Fork or clone the repository
+2. Run `npm install` to install dependencies
+3. Make your changes
+4. Test locally with `npm start`
+5. Submit a pull request with your improvements
 
 ## Usage
 
@@ -70,29 +87,31 @@ Try the application online: [https://segmentation-lab.onrender.com/](https://seg
 1. During a call, click "Virtual Background" button
 2. Select a segmentation model from the dropdown (MediaPipe is recommended for most devices)
 3. Choose a background type:
-   - None (blurred background)
+   - None (original background)
+   - Blur (blurred background)
    - Beach
    - Office
    - Custom (upload your own image)
 
 ## Segmentation Models
 
-### SAM2 Model
-- Based on Meta's Segment Anything Model 2
-- Highest quality segmentation
-- More resource-intensive
-
 ### MediaPipe Model
 - Uses Google's MediaPipe Selfie Segmentation
 - Good balance of performance and quality
 - Works well on most devices
+- **Currently the only implemented model**
 
-### BodyPix Model
+### SAM2 Model (Coming Soon)
+- Based on Meta's Segment Anything Model 2
+- Highest quality segmentation
+- More resource-intensive
+
+### BodyPix Model (Coming Soon)
 - TensorFlow.js-based segmentation
 - Reasonable quality
 - Higher resource usage
 
-### WebGL Model
+### WebGL Model (Coming Soon)
 - Custom WebGL-based segmentation
 - Fastest performance
 - Lower quality than other models
@@ -109,21 +128,37 @@ This allows you to compare the efficiency of different models on your device.
 ## Project Structure
 
 ```
-sam2-webrtc/
+segmentation-lab/
 ├── app.js             # Main client-side application logic
 ├── index.html         # Main HTML file
 ├── package.json       # Project dependencies
 ├── server.js          # WebRTC signaling server
+├── styles.css         # Application styles
+├── .gitignore         # Git ignore patterns
 ├── assets/            # Background images
 │   ├── beach.png
 │   └── office.png
+├── js/                # JavaScript modules
+│   ├── components/    # UI components
+│   │   ├── eventHandlers.js     # Event handling logic
+│   │   ├── performanceMetrics.js # Performance measuring utilities
+│   │   └── uiController.js      # UI manipulation functions
+│   ├── services/      # Services
+│   │   ├── backgroundService.js # Background effects processing
+│   │   ├── socketService.js     # Socket.io communication
+│   │   └── webrtcService.js     # WebRTC connection management
+│   └── utils/         # Utility functions
+│       ├── alertUtils.js        # Alert/notification utilities
+│       └── generalUtils.js      # General helper functions
 └── models/            # Segmentation model implementations
-    ├── BaseBackgroundModel.js
-    ├── BodyPixModel.js
-    ├── MediaPipeModel.js
-    ├── SAM2Model.js
-    └── WebGLModel.js
+    ├── BaseBackgroundModel.js   # Base model class
+    └── MediaPipeModel.js        # MediaPipe integration
 ```
+
+## Connect
+
+- [GitHub Repository](https://github.com/Ketan-K/segmentation-lab)
+- [LinkedIn](https://in.linkedin.com/in/ketan-k)
 
 ## License
 

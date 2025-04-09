@@ -39,8 +39,9 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
             const audioTracks = localStream.getAudioTracks();
             if (audioTracks.length > 0) {
                 audioTracks[0].enabled = false;
-                uiElements.toggleAudioButton.innerHTML = '<i class="fas fa-microphone-slash"></i> Unmute Audio';
+                uiElements.toggleAudioButton.innerHTML = '<i class="fas fa-microphone-slash"></i>';
                 uiElements.toggleAudioButton.classList.add('active');
+                uiElements.toggleAudioButton.title = 'Unmute Audio';
             }
             
             uiElements.localVideo.srcObject = localStream;
@@ -237,10 +238,16 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
             const isEnabled = !audioTracks[0].enabled;
             audioTracks[0].enabled = isEnabled;
             
-            uiElements.toggleAudioButton.innerHTML = isEnabled ? 
-                '<i class="fas fa-microphone"></i> Mute Audio' : 
-                '<i class="fas fa-microphone-slash"></i> Unmute Audio';
-            uiElements.toggleAudioButton.classList.toggle('active', !isEnabled);
+            // Update UI - simplified for icon button
+            if (isEnabled) {
+                uiElements.toggleAudioButton.innerHTML = '<i class="fas fa-microphone"></i>';
+                uiElements.toggleAudioButton.classList.remove('active');
+                uiElements.toggleAudioButton.title = 'Mute Audio';
+            } else {
+                uiElements.toggleAudioButton.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                uiElements.toggleAudioButton.classList.add('active');
+                uiElements.toggleAudioButton.title = 'Unmute Audio';
+            }
         }
     }
 
@@ -253,10 +260,16 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
             const isEnabled = !videoTracks[0].enabled;
             videoTracks[0].enabled = isEnabled;
             
-            uiElements.toggleVideoButton.innerHTML = isEnabled ? 
-                '<i class="fas fa-video"></i> Disable Video' : 
-                '<i class="fas fa-video-slash"></i> Enable Video';
-            uiElements.toggleVideoButton.classList.toggle('active', !isEnabled);
+            // Update UI - simplified for icon button
+            if (isEnabled) {
+                uiElements.toggleVideoButton.innerHTML = '<i class="fas fa-video"></i>';
+                uiElements.toggleVideoButton.classList.remove('active');
+                uiElements.toggleVideoButton.title = 'Turn Off Camera';
+            } else {
+                uiElements.toggleVideoButton.innerHTML = '<i class="fas fa-video-slash"></i>';
+                uiElements.toggleVideoButton.classList.add('active');
+                uiElements.toggleVideoButton.title = 'Turn On Camera';
+            }
             
             // If video was turned off, disable virtual background
             if (!isEnabled && backgroundService.isEnabled()) {
@@ -371,6 +384,9 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
         showAlert('The other participant has left the meeting', 'info');
         uiElements.remoteVideo.srcObject = null;
     });
+
+    // Make peerConnection available globally for stats display
+    window.peerConnection = peerConnection;
 
     return {
         createMeeting,
