@@ -985,6 +985,8 @@ select:focus {
   flex-direction: column;
   border: 1px solid var(--border-color);
   border-left: 3px solid var(--primary-color);
+  position: relative;
+  overflow: visible;
 }
 
 .metric-card .label {
@@ -1097,7 +1099,7 @@ select:focus {
 }
 
 .tooltip .tooltiptext {
-  visibility: hidden;
+  visibility: hidden; /* Changed back to hidden by default */
   width: 200px;
   background-color: var(--neutral-900);
   color: #fff;
@@ -1109,7 +1111,7 @@ select:focus {
   bottom: 125%;
   left: 50%;
   transform: translateX(-50%);
-  opacity: 0;
+  opacity: 0; /* Changed back to 0 by default */
   transition: opacity 0.3s, transform 0.3s;
   font-size: 12px;
   line-height: 1.5;
@@ -1118,8 +1120,8 @@ select:focus {
 }
 
 .tooltip:hover .tooltiptext {
-  visibility: visible;
-  opacity: 1;
+  visibility: visible; /* Make visible on hover */
+  opacity: 1; /* Make fully opaque on hover */
   transform: translateX(-50%) translateY(-5px);
 }
 
@@ -1132,6 +1134,57 @@ select:focus {
   border-width: 5px;
   border-style: solid;
   border-color: var(--neutral-900) transparent transparent transparent;
+}
+
+/* Tooltip icon for metric cards */
+.tooltip-icon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--neutral-500);
+  font-size: 0.75rem;
+  cursor: help;
+}
+
+.tooltip-icon .tooltip-content {
+  display: none;
+  position: absolute;
+  bottom: 125%;
+  right: 0;
+  width: 200px;
+  background-color: var(--neutral-900);
+  color: white;
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px;
+  z-index: 1000;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  pointer-events: none;
+  white-space: normal;
+}
+
+.tooltip-icon:hover .tooltip-content {
+  display: block;
+  animation: fadeIn 0.3s;
+}
+
+.tooltip-icon:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 125%;
+  right: 8px;
+  transform: translateY(5px);
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--neutral-900) transparent transparent transparent;
+  z-index: 1000;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Flex utility classes */

@@ -199,14 +199,62 @@ class BodyPixModel extends BaseBackgroundModel {
      * @private
      */
     async _applyBlurBackground(videoElement, canvas, segmentationMask) {
-        // Use BodyPix's built-in blur function
-        await window.bodyPix.drawBokehEffect(
-            canvas, 
-            videoElement, 
-            segmentationMask, 
-            10, // blurAmount
-            7   // edgeBlurAmount
-        );
+        const ctx = canvas.getContext('2d');
+        const { width, height } = ctx.canvas;
+        
+        // Validate canvas dimensions
+        if (width === 0 || height === 0) {
+            this.debug('Canvas has invalid dimensions, cannot apply blur background');
+            ctx.drawImage(videoElement, 0, 0, width, height);
+            return;
+        }
+        
+        // Draw a blurred version of the video as background
+        ctx.save();
+        ctx.filter = 'blur(15px)';
+        ctx.drawImage(videoElement, 0, 0, width, height);
+        ctx.filter = 'none';
+        ctx.restore();
+        
+        // Create a temporary canvas for the person
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) {
+            this.debug('Failed to get 2D context for temp canvas');
+            return;
+        }
+        
+        // Draw the person onto the temp canvas
+        tempCtx.drawImage(videoElement, 0, 0, width, height);
+        
+        try {
+            // Create ImageData from the mask
+            const imageData = tempCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            
+            // Apply the mask: make background pixels transparent
+            for (let i = 0; i < segmentationMask.data.length; i++) {
+                // If this pixel is not a person (mask value is 0), make it transparent
+                if (!segmentationMask.data[i]) {
+                    const pixelIndex = i * 4;
+                    data[pixelIndex + 3] = 0; // Set alpha to 0
+                }
+            }
+            
+            // Put the masked image data back to the temp canvas
+            tempCtx.putImageData(imageData, 0, 0);
+            
+            // Draw the person silhouette from temp canvas onto the main canvas with the blurred background
+            ctx.drawImage(tempCanvas, 0, 0);
+        } catch (error) {
+            this.debug(`Error in blur background processing: ${error.message}`);
+            // Fallback to just drawing the video
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(videoElement, 0, 0, width, height);
+        }
     }
 
     /**
