@@ -201,6 +201,24 @@ export function initVirtualBackground(uiElements) {
             // If it was previously enabled, turn it back on
             if (wasEnabled && success) {
                 await toggle(true); // Pass true to explicitly turn it on
+                
+                // Force track replacement to ensure remote peer sees the changes
+                if (window.peerConnection && virtualBackground.videoTrack) {
+                    const senders = window.peerConnection.getSenders();
+                    const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+                    
+                    if (videoSender) {
+                        try {
+                            updateDebugInfo('Explicitly replacing track after model change');
+                            await videoSender.replaceTrack(virtualBackground.videoTrack);
+                            
+                            // Notify about track update
+                            showAlert('Video track updated on remote end', 'info', null, 2000);
+                        } catch (e) {
+                            updateDebugInfo(`Error replacing track: ${e.message}`);
+                        }
+                    }
+                }
             }
             
             return success;
@@ -380,10 +398,12 @@ export function initVirtualBackground(uiElements) {
 
     /**
      * Toggle the virtual background on/off
+     * @param {boolean} forceState - Optional parameter to force a specific state
      * @returns {Promise<void>}
      */
-    async function toggle() {
-        virtualBackground.enabled = !virtualBackground.enabled;
+    async function toggle(forceState) {
+        // If forceState is provided, use it; otherwise toggle the current state
+        virtualBackground.enabled = forceState !== undefined ? forceState : !virtualBackground.enabled;
         
         if (virtualBackground.enabled) {
             // Update UI - using the new icon button
@@ -451,14 +471,8 @@ export function initVirtualBackground(uiElements) {
             // Hide the video element but keep it for processing
             uiElements.localVideo.style.opacity = '0';
             
-            // If already in a WebRTC connection, replace the existing track
-            if (window.peerConnection) {
-                const senders = window.peerConnection.getSenders();
-                const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
-                if (videoSender) {
-                    videoSender.replaceTrack(canvasStream.getVideoTracks()[0]);
-                }
-            }
+            // Replace the video track in the WebRTC connection
+            await replaceVideoTrackInPeerConnection(virtualBackground.videoTrack);
             
             // Make sure the canvas is in the same container as the video
             const videoWrapper = uiElements.localVideo.closest('.video-wrapper');
@@ -489,14 +503,11 @@ export function initVirtualBackground(uiElements) {
             
             // Restore original stream
             if (virtualBackground.stream) {
-                // If already in a WebRTC connection, replace the track
-                if (window.peerConnection) {
-                    const senders = window.peerConnection.getSenders();
-                    const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
-                    const originalVideoTrack = virtualBackground.stream.getVideoTracks()[0];
-                    if (videoSender && originalVideoTrack) {
-                        videoSender.replaceTrack(originalVideoTrack);
-                    }
+                const originalVideoTrack = virtualBackground.stream.getVideoTracks()[0];
+                
+                // Replace the track in the WebRTC connection
+                if (originalVideoTrack) {
+                    await replaceVideoTrackInPeerConnection(originalVideoTrack);
                 }
                 
                 // Restore local video
@@ -511,6 +522,76 @@ export function initVirtualBackground(uiElements) {
             }
             
             updateDebugInfo('Virtual background disabled');
+        }
+    }
+
+    /**
+     * Helper function to replace video track in peer connection
+     * @param {MediaStreamTrack} newTrack - The new video track to use
+     * @returns {Promise<boolean>} - Whether the track was replaced successfully
+     */
+    async function replaceVideoTrackInPeerConnection(newTrack) {
+        // Check peer connection status
+        if (!window.peerConnection) {
+            updateDebugInfo('Waiting for peer connection...');
+            // Try multiple times with increasing delays
+            for (let i = 0; i < 3; i++) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                if (window.peerConnection) {
+                    updateDebugInfo('Peer connection found after retry');
+                    break;
+                }
+            }
+        }
+
+        if (!window.peerConnection) {
+            updateDebugInfo('No peer connection available for track replacement. Connection state: ' + 
+                (window.peerConnection ? window.peerConnection.connectionState : 'undefined'));
+            return false;
+        }
+        
+        try {
+            updateDebugInfo(`Replacing video track in peer connection. Track ID: ${newTrack.id}, State: ${window.peerConnection.connectionState}`);
+            const senders = window.peerConnection.getSenders();
+            const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+            
+            if (videoSender) {
+                const oldTrack = videoSender.track;
+                updateDebugInfo(`Found existing video sender. Old track ID: ${oldTrack ? oldTrack.id : 'none'}`);
+                
+                await videoSender.replaceTrack(newTrack);
+                updateDebugInfo('Video track replaced successfully in peer connection');
+                console.log('Track replacement successful:', newTrack);
+                
+                // Verify the track was replaced
+                if (videoSender.track === newTrack) {
+                    updateDebugInfo('Track replacement verified');
+                    return true;
+                } else {
+                    updateDebugInfo('Track replacement verification failed');
+                    return false;
+                }
+            } else {
+                updateDebugInfo('No video sender found in peer connection. Available senders:', 
+                    senders.map(s => `${s.track ? s.track.kind : 'no track'}`).join(', '));
+                
+                // Try to add the track if no sender exists
+                if (window.peerConnection.connectionState === 'connected') {
+                    try {
+                        window.peerConnection.addTrack(newTrack);
+                        updateDebugInfo('Added new video track to peer connection');
+                        return true;
+                    } catch (e) {
+                        updateDebugInfo('Failed to add new track: ' + e.message);
+                        return false;
+                    }
+                }
+                return false;
+            }
+        } catch (error) {
+            updateDebugInfo(`Error replacing track in peer connection: ${error.message}`);
+            console.error('Error replacing track:', error);
+            return false;
         }
     }
 
@@ -661,9 +742,19 @@ export function initVirtualBackground(uiElements) {
             customImg.src = virtualBackground.image.src;
             customOption.appendChild(customImg);
             
-            // Insert the custom option before the upload button
+            // Insert the custom option before the upload button, but check first if the upload button exists and has a parent
             const uploadButton = document.getElementById('uploadBackground');
-            uiElements.backgroundSelector.insertBefore(customOption, uploadButton);
+            if (uploadButton && uploadButton.parentNode && uiElements.backgroundSelector) {
+                uiElements.backgroundSelector.insertBefore(customOption, uploadButton);
+            } else {
+                // Fallback: just append it to the background selector
+                if (uiElements.backgroundSelector) {
+                    uiElements.backgroundSelector.appendChild(customOption);
+                } else {
+                    updateDebugInfo('Error: Could not find background selector element');
+                    return;
+                }
+            }
             
             // Add event listener to the new option
             customOption.addEventListener('click', () => {
@@ -861,9 +952,10 @@ export function initVirtualBackground(uiElements) {
         uploadCustomBackground,
         isEnabled: () => virtualBackground.enabled,
         getCurrentModel: () => virtualBackground.model,
+        getCurrentVideoTrack: () => virtualBackground.videoTrack,
         setContext,
         resetMetrics,
-        reloadBackgroundModel, // Add the new function to public API
+        reloadBackgroundModel,
         
         // Performance metrics for ModelLabUI
         getPerformanceMetrics: () => {

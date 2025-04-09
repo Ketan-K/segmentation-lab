@@ -54,6 +54,29 @@ io.on('connection', (socket) => {
         socket.to(meetingCode).emit('new-user-joined');
     });
 
+    // Handle end call event
+    socket.on('end-call', () => {
+        if (currentMeetingCode && meetings[currentMeetingCode]) {
+            // Notify other participants in the meeting first
+            socket.to(currentMeetingCode).emit('call-ended', socket.id);
+            
+            // Remove user from meeting
+            meetings[currentMeetingCode].participants.delete(socket.id);
+            
+            // Clean up empty meetings
+            if (meetings[currentMeetingCode].participants.size === 0) {
+                delete meetings[currentMeetingCode];
+                console.log(`Meeting ${currentMeetingCode} deleted (no participants)`);
+            }
+            
+            // Leave the socket room
+            socket.leave(currentMeetingCode);
+            
+            // Reset the meeting code
+            currentMeetingCode = null;
+        }
+    });
+
     // Handle offer signal
     socket.on('offer', (data) => {
         console.log(`Offer from ${socket.id} in meeting ${data.meetingCode}`);

@@ -1,74 +1,138 @@
-// Utility functions for displaying in-app alerts
+// Alert utility functions
+const ALERT_DURATION = 5000; // 5 seconds
+const alerts = [];
 
-/**
- * Displays an in-app alert message
- * @param {string} message - The message to display
- * @param {string} type - Alert type ('info', 'error', 'success')
- * @param {string} title - Alert title
- * @param {number} duration - How long to display the alert in ms
- * @returns {string} The ID of the created alert
- */
-export function showAlert(message, type = 'info', title = '', duration = 5000) {
-    const alertContainer = document.getElementById('alertContainer');
-    const alertId = 'alert-' + Date.now();
-    
-    // Create alert element
-    const alert = document.createElement('div');
-    alert.className = `app-alert ${type}`;
-    alert.id = alertId;
-    
-    // Set icon based on type
-    let icon = 'info-circle';
-    if (type === 'error') icon = 'exclamation-circle';
-    if (type === 'success') icon = 'check-circle';
-    
-    // Set title if not provided
-    if (!title) {
-        if (type === 'error') title = 'Error';
-        if (type === 'success') title = 'Success';
-        if (type === 'info') title = 'Information';
+export function showAlert(message, type = 'info', title = '') {
+    // Create alert container if it doesn't exist
+    let alertContainer = document.getElementById('alertContainer');
+    if (!alertContainer) {
+        alertContainer = document.createElement('div');
+        alertContainer.id = 'alertContainer';
+        alertContainer.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 80vh;
+            overflow-y: auto;
+        `;
+        document.body.appendChild(alertContainer);
     }
-    
-    // Build alert content
-    alert.innerHTML = `
-        <div class="alert-icon"><i class="fas fa-${icon}"></i></div>
-        <div class="alert-content">
-            <div class="alert-title">${title}</div>
-            <div class="alert-message">${message}</div>
-        </div>
-        <button class="close-alert"><i class="fas fa-times"></i></button>
+
+    // Create alert element
+    const alertEl = document.createElement('div');
+    const alertId = Date.now();
+    alertEl.id = `alert-${alertId}`;
+    alertEl.className = `alert alert-${type}`;
+    alertEl.style.cssText = `
+        padding: 12px 20px;
+        margin-bottom: 0;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-width: 300px;
+        max-width: 500px;
+        animation: slideIn 0.3s ease;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: 1px solid rgba(0,0,0,0.1);
     `;
-    
-    // Add event listener to close button
-    alertContainer.appendChild(alert);
-    
-    // Show alert with animation
-    setTimeout(() => alert.classList.add('show'), 10);
-    
-    // Set up auto-dismiss
-    const timeoutId = setTimeout(() => dismissAlert(alertId), duration);
-    
-    // Add click event to close button
-    alert.querySelector('.close-alert').addEventListener('click', () => {
-        clearTimeout(timeoutId);
-        dismissAlert(alertId);
-    });
-    
-    return alertId;
+
+    // Set background color based on type
+    switch (type) {
+        case 'success':
+            alertEl.style.backgroundColor = 'rgba(40, 167, 69, 0.95)';
+            alertEl.style.color = 'white';
+            break;
+        case 'error':
+            alertEl.style.backgroundColor = 'rgba(220, 53, 69, 0.95)';
+            alertEl.style.color = 'white';
+            break;
+        case 'warning':
+            alertEl.style.backgroundColor = 'rgba(255, 193, 7, 0.95)';
+            alertEl.style.color = 'black';
+            break;
+        default:
+            alertEl.style.backgroundColor = 'rgba(23, 162, 184, 0.95)';
+            alertEl.style.color = 'white';
+    }
+
+    // Create message content
+    const messageContent = document.createElement('div');
+    messageContent.style.flex = '1';
+    if (title) {
+        const titleEl = document.createElement('div');
+        titleEl.style.fontWeight = 'bold';
+        titleEl.style.marginBottom = '4px';
+        titleEl.textContent = title;
+        messageContent.appendChild(titleEl);
+    }
+    const messageEl = document.createElement('div');
+    messageEl.textContent = message;
+    messageContent.appendChild(messageEl);
+    alertEl.appendChild(messageContent);
+
+    // Add close button
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '&times;';
+    closeButton.style.cssText = `
+        background: none;
+        border: none;
+        color: inherit;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0 0 0 10px;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+    `;
+    closeButton.addEventListener('mouseover', () => closeButton.style.opacity = '1');
+    closeButton.addEventListener('mouseout', () => closeButton.style.opacity = '0.8');
+    closeButton.onclick = () => removeAlert(alertId);
+    alertEl.appendChild(closeButton);
+
+    // Add to container
+    alertContainer.appendChild(alertEl);
+    alerts.push(alertId);
+
+    // Auto remove after duration
+    setTimeout(() => removeAlert(alertId), ALERT_DURATION);
+
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
-/**
- * Dismisses an alert with animation
- * @param {string} alertId - The ID of the alert to dismiss
- */
-export function dismissAlert(alertId) {
-    const alert = document.getElementById(alertId);
-    if (!alert) return;
-    
-    alert.classList.remove('show');
-    setTimeout(() => {
-        if (alert.parentNode) {
-            alert.parentNode.removeChild(alert);
-        }
-    }, 300);
+function removeAlert(alertId) {
+    const alertEl = document.getElementById(`alert-${alertId}`);
+    if (alertEl) {
+        // Add slide out animation
+        alertEl.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            alertEl.remove();
+            // Remove from alerts array
+            const index = alerts.indexOf(alertId);
+            if (index > -1) {
+                alerts.splice(index, 1);
+            }
+            // Remove container if no alerts
+            if (alerts.length === 0) {
+                const container = document.getElementById('alertContainer');
+                if (container) container.remove();
+            }
+        }, 300);
+    }
 }

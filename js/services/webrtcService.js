@@ -95,6 +95,9 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
     function createPeerConnection() {
         peerConnection = new RTCPeerConnection(configuration);
         
+        // Make peerConnection globally accessible for background service
+        window.peerConnection = peerConnection;
+        
         // Add local stream tracks to the connection
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);
@@ -111,11 +114,42 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
         };
         
         // Handle connection state changes
+        peerConnection.onconnectionstatechange = () => {
+            updateDebugInfo(`Connection state changed: ${peerConnection.connectionState}`);
+            if (peerConnection.connectionState === 'connected') {
+                updateDebugInfo('WebRTC connection established successfully');
+                showAlert('Connected to peer', 'success');
+                
+                // If virtual background is enabled, ensure track is replaced
+                if (backgroundService.isEnabled()) {
+                    const videoTrack = backgroundService.getCurrentVideoTrack();
+                    if (videoTrack) {
+                        const senders = peerConnection.getSenders();
+                        const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+                        if (videoSender && videoSender.track !== videoTrack) {
+                            videoSender.replaceTrack(videoTrack).then(() => {
+                                updateDebugInfo('Video track replaced after connection established');
+                            }).catch(error => {
+                                updateDebugInfo(`Error replacing track after connection: ${error.message}`);
+                            });
+                        }
+                    }
+                }
+            } else if (peerConnection.connectionState === 'failed') {
+                updateDebugInfo('WebRTC connection failed');
+                showAlert('Connection failed. Please try reconnecting.', 'error');
+            }
+        };
+        
+        // Handle ICE connection state changes
         peerConnection.oniceconnectionstatechange = () => {
-            // Only log critical state changes
+            updateDebugInfo(`ICE connection state: ${peerConnection.iceConnectionState}`);
             const state = peerConnection.iceConnectionState;
             if (state === 'failed' || state === 'disconnected' || state === 'closed') {
                 console.log('ICE connection state:', state);
+                if (state === 'failed') {
+                    showAlert('Connection failed. Please check your network.', 'error');
+                }
             }
         };
         
@@ -123,6 +157,7 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
         peerConnection.ontrack = event => {
             if (uiElements.remoteVideo.srcObject !== event.streams[0]) {
                 uiElements.remoteVideo.srcObject = event.streams[0];
+                updateDebugInfo('Received remote stream');
             }
         };
     }
@@ -134,6 +169,9 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
         isInitiator = true;
         meetingCode = generateMeetingCode();
         uiElements.meetingCodeDisplay.textContent = meetingCode;
+        
+        // Create peer connection before joining the room
+        createPeerConnection();
         
         // Join the meeting room
         socket.emit('create-meeting', meetingCode);
@@ -280,28 +318,65 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
     }
 
     // End the call
-    function endCall() {
-        if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-        }
-        
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localStream = null;
-        }
-        
-        uiElements.localVideo.srcObject = null;
-        uiElements.remoteVideo.srcObject = null;
-        
-        // Reset UI
-        uiElements.setupPanel.classList.remove('hide');
-        uiElements.callPanel.classList.add('hide');
-        uiElements.meetingCodeInput.value = '';
-        
-        // Disable virtual background
-        if (backgroundService.isEnabled()) {
-            backgroundService.toggle();
+    async function endCall(skipConfirmation = false) {
+        try {
+            updateDebugInfo('Ending call...');
+            
+            // Notify other participants that we're ending the call
+            if (meetingCode && socket.connected) {
+                socket.emit('end-call');
+                // Brief delay to ensure the end-call message is sent
+                await new Promise(resolve => setTimeout(resolve, 100));
+                // Close socket connection
+                socket.close();
+            }
+            
+            // Clean up peer connection
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+                window.peerConnection = null;
+            }
+            
+            // Stop all tracks in local stream
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    track.stop();
+                    updateDebugInfo(`Stopped track: ${track.kind}`);
+                });
+                localStream = null;
+            }
+            
+            // Clear video elements
+            if (uiElements.localVideo.srcObject) {
+                uiElements.localVideo.srcObject = null;
+            }
+            if (uiElements.remoteVideo.srcObject) {
+                uiElements.remoteVideo.srcObject = null;
+            }
+            
+            // Reset UI state
+            uiElements.setupPanel.classList.remove('hide');
+            uiElements.callPanel.classList.add('hide');
+            uiElements.meetingCodeInput.value = '';
+            uiElements.meetingCodeDisplay.textContent = '';
+            
+            // Reset meeting state
+            meetingCode = '';
+            isInitiator = false;
+            
+            // Disable virtual background if enabled
+            if (backgroundService.isEnabled()) {
+                await backgroundService.toggle();
+            }
+            
+            updateDebugInfo('Call ended successfully');
+            showAlert('Call ended', 'info');
+            
+        } catch (error) {
+            console.error('Error ending call:', error);
+            updateDebugInfo(`Error ending call: ${error.message}`);
+            showAlert('Error ending call', 'error');
         }
     }
 
@@ -352,12 +427,17 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
     socket.on('joined-meeting', () => {
         if (isInitiator) {
             createPeerConnection();
+            updateDebugInfo('Peer connection created for initiator');
         }
     });
 
     socket.on('new-user-joined', () => {
         showAlert('A new participant has joined the meeting', 'info');
         if (isInitiator) {
+            if (!peerConnection) {
+                createPeerConnection();
+                updateDebugInfo('Peer connection created when new user joined');
+            }
             startCall();
         }
     });
@@ -365,28 +445,57 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
     socket.on('offer', data => {
         if (data.meetingCode === meetingCode) {
             handleOffer(data.offer);
+            updateDebugInfo('Received and handled offer');
         }
     });
 
     socket.on('answer', data => {
         if (data.meetingCode === meetingCode) {
             handleAnswer(data.answer);
+            updateDebugInfo('Received and handled answer');
         }
     });
 
     socket.on('ice-candidate', data => {
         if (data.meetingCode === meetingCode) {
             handleIceCandidate(data.candidate);
+            updateDebugInfo('Received and handled ICE candidate');
         }
     });
 
     socket.on('user-disconnected', () => {
-        showAlert('The other participant has left the meeting', 'info');
+        showAlert('The other participant has left the meeting', 'warning', 'Participant Left');
         uiElements.remoteVideo.srcObject = null;
+        // Clear peerConnection when user disconnects
+        if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+            window.peerConnection = null;
+            updateDebugInfo('Peer connection closed due to user disconnect');
+        }
+    });
+
+    // Add new socket event handler for call-ended
+    socket.on('call-ended', (userId) => {
+        showAlert('The other participant ended the call', 'warning', 'Call Ended');
+        // Skip confirmation since we're responding to the other user's action
+        endCall(true);
     });
 
     // Make peerConnection available globally for stats display
     window.peerConnection = peerConnection;
+
+    // Add window unload handler for tab close
+    window.addEventListener('beforeunload', (event) => {
+        if (meetingCode) {
+            // Standard way to show browser's "Are you sure?" dialog
+            event.preventDefault();
+            event.returnValue = '';
+            
+            // If user proceeds with closing, end the call
+            socket.emit('end-call');
+        }
+    });
 
     return {
         createMeeting,
@@ -398,6 +507,7 @@ export function setupWebRTCConnection(socket, uiElements, backgroundService) {
         copyMeetingLink,
         checkUrlForMeetingCode,
         getLocalStream: () => localStream,
-        getMeetingCode: () => meetingCode
+        getMeetingCode: () => meetingCode,
+        getPeerConnection: () => peerConnection
     };
 }

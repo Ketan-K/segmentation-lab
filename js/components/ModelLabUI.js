@@ -49,23 +49,41 @@ class ModelLabUI {
         labSection.id = 'modelLabSection';
         labSection.className = 'model-lab-section';
         labSection.innerHTML = `
-            <h3 class="flex items-center gap-2">
-                <i class="fas fa-flask"></i> 
-                Virtual Background Models Lab 
-                <span class="tooltip" style="font-size:0.8rem; color:var(--neutral-500)">
-                    <i class="fas fa-info-circle"></i>
-                    <span class="tooltiptext">Test different segmentation models and configurations</span>
-                </span>
-            </h3>
-            
-            <div class="device-capabilities-section">
-                <h4>Device Capabilities</h4>
-                <div id="device-info" class="device-info-grid">Loading capabilities...</div>
+            <div class="lab-header">
+                <h3 class="flex items-center gap-2">
+                    <i class="fas fa-flask"></i> 
+                    <span>Virtual Background Models</span>
+                    <button class="collapse-btn" title="Toggle section visibility">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </h3>
+                <span class="lab-subtitle">Test different segmentation models and configurations</span>
             </div>
             
-            <div class="model-selection-section">
-                <h4>Available Models</h4>
-                <div id="model-selection">Loading available models...</div>
+            <div class="lab-content">
+                <div class="device-capabilities-section">
+                    <div class="section-header" data-section="device-info">
+                        <h4>Device Capabilities</h4>
+                        <button class="collapse-btn" title="Toggle section visibility">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="section-content" id="device-info-content">
+                        <div id="device-info" class="device-info-grid">Loading capabilities...</div>
+                    </div>
+                </div>
+                
+                <div class="model-selection-section">
+                    <div class="section-header" data-section="model-selection">
+                        <h4>Available Models</h4>
+                        <button class="collapse-btn" title="Toggle section visibility">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="section-content" id="model-selection-content">
+                        <div id="model-selection">Loading available models...</div>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -74,39 +92,103 @@ class ModelLabUI {
         styleEl.textContent = `
             .model-lab-section {
                 margin-top: 15px;
-                padding: 15px;
+                padding: 10px;
                 background-color: rgba(0, 0, 0, 0.02);
                 border: 1px solid var(--neutral-200);
                 border-radius: 8px;
             }
             
+            .lab-header {
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .lab-header h3 {
+                margin: 0;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            
+            .lab-subtitle {
+                font-size: 0.85rem;
+                color: var(--neutral-500);
+                margin-top: 3px;
+                margin-left: 22px;
+            }
+            
+            .section-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin: 8px 0 3px;
+                padding-bottom: 3px;
+                border-bottom: 1px solid var(--neutral-100);
+            }
+            
+            .section-header h4 {
+                margin: 0;
+                font-size: 0.95rem;
+            }
+            
+            .collapse-btn {
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 2px 6px;
+                color: var(--neutral-500);
+                border-radius: 4px;
+                transition: all 0.2s ease;
+            }
+            
+            .collapse-btn:hover {
+                background-color: var(--neutral-100);
+                color: var(--neutral-700);
+            }
+            
+            .collapse-btn.collapsed i {
+                transform: rotate(-90deg);
+            }
+            
+            .section-content.collapsed {
+                display: none;
+            }
+            
             .device-capabilities-section,
             .model-selection-section {
-                margin-top: 12px;
+                margin-top: 6px;
+                background-color: white;
+                border-radius: 6px;
+                padding: 6px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             }
             
             .device-info-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-                gap: 8px;
-                margin-top: 8px;
-                font-size: 14px;
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 6px;
+                margin-top: 6px;
+                font-size: 12px;
             }
             
             .device-info-item {
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: 6px;
+                padding: 3px 6px;
+                background-color: rgba(0,0,0,0.01);
+                border-radius: 4px;
             }
             
             .device-info-value {
                 font-weight: 500;
+                margin-left: auto;
             }
             
             .model-option {
-                padding: 15px;
-                border-radius: 8px;
-                margin-bottom: 12px;
+                padding: 8px;
+                border-radius: 6px;
+                margin-bottom: 6px;
                 background-color: white;
                 border: 1px solid var(--neutral-200);
                 transition: all 0.2s ease;
@@ -121,13 +203,18 @@ class ModelLabUI {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 8px;
+                margin-bottom: 4px;
+            }
+            
+            .model-name {
+                font-weight: 500;
+                font-size: 13px;
             }
             
             .model-badge {
-                font-size: 12px;
-                padding: 3px 8px;
-                border-radius: 12px;
+                font-size: 10px;
+                padding: 1px 5px;
+                border-radius: 10px;
             }
             
             .model-badge.implemented {
@@ -141,22 +228,22 @@ class ModelLabUI {
             }
             
             .model-description {
-                font-size: 14px;
+                font-size: 12px;
                 color: var(--neutral-600);
-                margin-bottom: 12px;
+                margin-bottom: 6px;
             }
             
             .model-variants {
-                margin-left: 15px;
+                margin-left: 10px;
                 border-left: 2px solid var(--neutral-200);
-                padding-left: 15px;
+                padding-left: 10px;
             }
             
             .variant-item {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 8px 0;
+                padding: 4px 0;
                 border-bottom: 1px solid var(--neutral-100);
             }
             
@@ -165,33 +252,41 @@ class ModelLabUI {
             }
             
             .variant-info {
-                font-size: 14px;
+                font-size: 12px;
+                max-width: 65%;
             }
             
             .variant-name {
                 font-weight: 500;
-                margin-bottom: 2px;
+                margin-bottom: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             
             .variant-specs {
-                font-size: 13px;
+                font-size: 11px;
                 color: var(--neutral-600);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             
             .incompatibility-reason {
-                font-size: 12px;
+                font-size: 10px;
                 color: var(--danger-color);
-                margin-top: 4px;
+                margin-top: 1px;
             }
             
             button.select-model-btn,
             button.try-variant-btn {
-                padding: 6px 12px;
+                padding: 3px 8px;
                 border: none;
                 border-radius: 4px;
-                font-size: 14px;
+                font-size: 12px;
                 cursor: pointer;
                 transition: all 0.2s ease;
+                white-space: nowrap;
             }
             
             button.select-model-btn {
@@ -202,6 +297,7 @@ class ModelLabUI {
             button.try-variant-btn {
                 background-color: var(--secondary-color);
                 color: white;
+                min-width: 50px;
             }
             
             button:disabled {
@@ -213,6 +309,17 @@ class ModelLabUI {
             button.try-variant-btn:hover:not(:disabled) {
                 filter: brightness(1.1);
             }
+            
+            .model-lab-section.collapsed .lab-content {
+                display: none;
+            }
+            
+            /* Compact model selector layout */
+            .compact-models-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 8px;
+            }
         `;
         
         // Insert the styles and lab section
@@ -220,6 +327,44 @@ class ModelLabUI {
         
         // Insert after performance metrics
         performanceMetrics.parentNode.insertBefore(labSection, performanceMetrics.nextSibling);
+        
+        // Add event listeners for collapsible sections
+        this._setupCollapsibleSections();
+    }
+
+    /**
+     * Set up collapsible sections behavior
+     * @private 
+     */
+    _setupCollapsibleSections() {
+        // Main section collapse toggle
+        const mainSection = document.getElementById('modelLabSection');
+        const mainToggle = mainSection.querySelector('.lab-header .collapse-btn');
+        
+        mainToggle.addEventListener('click', () => {
+            mainSection.classList.toggle('collapsed');
+            mainToggle.classList.toggle('collapsed');
+            const icon = mainToggle.querySelector('i');
+            icon.className = mainSection.classList.contains('collapsed') ? 
+                'fas fa-chevron-right' : 'fas fa-chevron-down';
+        });
+        
+        // Sub-sections collapse toggles
+        const sectionHeaders = document.querySelectorAll('.section-header');
+        
+        sectionHeaders.forEach(header => {
+            const sectionId = header.getAttribute('data-section');
+            const content = document.getElementById(`${sectionId}-content`);
+            const toggleBtn = header.querySelector('.collapse-btn');
+            
+            toggleBtn.addEventListener('click', () => {
+                content.classList.toggle('collapsed');
+                toggleBtn.classList.toggle('collapsed');
+                const icon = toggleBtn.querySelector('i');
+                icon.className = content.classList.contains('collapsed') ? 
+                    'fas fa-chevron-right' : 'fas fa-chevron-down';
+            });
+        });
     }
     
     /**
@@ -239,7 +384,7 @@ class ModelLabUI {
         if (deviceInfoDiv) {
             deviceInfoDiv.innerHTML = `
                 <div class="device-info-item">
-                    <div>SIMD Support:</div>
+                    <div>SIMD:</div>
                     <div class="device-info-value" style="color: ${deviceCapabilities.simdSupport ? 'var(--success-color)' : 'var(--danger-color)'}">
                         ${deviceCapabilities.simdSupport ? 'Yes' : 'No'}
                     </div>
@@ -274,6 +419,11 @@ class ModelLabUI {
         // Clear previous content
         modelSelectionDiv.innerHTML = '';
         
+        // Create a container grid for models
+        const modelsGrid = document.createElement('div');
+        modelsGrid.className = 'compact-models-grid';
+        modelSelectionDiv.appendChild(modelsGrid);
+        
         // Add auto (recommended) option
         const autoDiv = document.createElement('div');
         autoDiv.className = `model-option ${!deviceCapabilities.preferredModel || deviceCapabilities.preferredModel === 'auto' ? 'selected' : ''}`;
@@ -286,7 +436,7 @@ class ModelLabUI {
                 </button>
             </div>
             <div class="model-description">
-                Automatically selects the optimal model based on your device capabilities
+                Auto-selects optimal model for your device
             </div>
         `;
         
@@ -294,7 +444,7 @@ class ModelLabUI {
             await this._selectModel('auto');
         });
         
-        modelSelectionDiv.appendChild(autoDiv);
+        modelsGrid.appendChild(autoDiv);
         
         // Create elements for each model
         availableModels.forEach(model => {
@@ -308,7 +458,7 @@ class ModelLabUI {
                         ${model.isImplemented ? 'Available' : 'Coming Soon'}
                     </div>
                 </div>
-                <div class="model-description">${model.description || ''}</div>
+                <div class="model-description">${model.description ? model.description.split('(')[0] : ''}</div>
             `;
             
             // Add variants if available
@@ -319,10 +469,10 @@ class ModelLabUI {
                     modelContent += `
                         <div class="variant-item ${isDisabled ? 'disabled' : ''}">
                             <div class="variant-info">
-                                <div class="variant-name">${variant.name}</div>
+                                <div class="variant-name">${variant.name.replace(/^.*?\s/, '')}</div>
                                 <div class="variant-specs">
-                                    Resolution: ${variant.resolution} | FPS: ${variant.fps}
-                                    ${variant.backend ? ` | Backend: ${variant.backend}` : ''}
+                                    ${variant.resolution} | ${variant.fps}
+                                    ${variant.backend ? ` | ${variant.backend}` : ''}
                                 </div>
                                 ${variant.incompatibilityReason ? 
                                     `<div class="incompatibility-reason">${variant.incompatibilityReason}</div>` : ''
@@ -330,7 +480,7 @@ class ModelLabUI {
                             </div>
                             <button class="try-variant-btn" data-model="${model.id}" data-variant="${variant.name}" 
                                 ${isDisabled ? 'disabled' : ''}>
-                                ${isDisabled ? 'Not Available' : 'Try'}
+                                ${isDisabled ? 'N/A' : 'Try'}
                             </button>
                         </div>
                     `;
@@ -339,7 +489,7 @@ class ModelLabUI {
             } else {
                 // Add select button for models without variants
                 modelContent += `
-                    <div style="text-align: right; margin-top: 10px;">
+                    <div style="text-align: right; margin-top: 6px;">
                         <button class="select-model-btn" data-model="${model.id}" 
                             ${!model.isImplemented ? 'disabled' : ''}>
                             ${model.isImplemented ? 
@@ -352,7 +502,7 @@ class ModelLabUI {
             }
             
             modelDiv.innerHTML = modelContent;
-            modelSelectionDiv.appendChild(modelDiv);
+            modelsGrid.appendChild(modelDiv);
         });
         
         // Add event listeners for variant buttons
